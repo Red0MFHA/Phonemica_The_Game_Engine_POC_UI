@@ -7,6 +7,7 @@ import {
 import { ArrowLeft, BrainCircuit, Sparkles } from "lucide-react";
 import { mockEngine } from "@/services/mockEngine";
 import { Button, Card, PageHeader, StatusPill } from "@/components/ui";
+import { use } from "react";
 
 const TREND_TONES: Record<string, string> = {
   improving: "↑ improving",
@@ -14,8 +15,9 @@ const TREND_TONES: Record<string, string> = {
   declining: "↓ declining",
 };
 
-export default function AnalyticsPage({ params }: { params: { id: string } }) {
-  const child = mockEngine.getChild(params.id);
+export default function AnalyticsPage({ params }: { params: Promise<{ id: string }> }) {
+  const { id } = use(params);
+  const child = mockEngine.getChild(id);
   if (!child) return <div className="py-20 text-center text-slate-400 dark:text-slate-500">Child not found.</div>;
   const a = mockEngine.getAnalytics(child.id);
 

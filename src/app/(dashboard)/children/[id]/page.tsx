@@ -1,13 +1,14 @@
 "use client";
 
-import { useState } from "react";
+import { useState, use } from "react";
 import { ArrowLeft, Sparkles, UserPlus } from "lucide-react";
 import { mockEngine } from "@/services/mockEngine";
 import { Button, Card, PageHeader, StatusPill } from "@/components/ui";
 
-export default function ChildDetailPage({ params }: { params: { id: string } }) {
+export default function ChildDetailPage({ params }: { params: Promise<{ id: string }> }) {
+  const { id } = use(params);
   const [, setTick] = useState(0);
-  const child = mockEngine.getChild(params.id);
+  const child = mockEngine.getChild(id);
   const refresh = () => setTick((t) => t + 1);
 
   if (!child) {

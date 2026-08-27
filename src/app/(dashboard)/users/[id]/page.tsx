@@ -1,14 +1,16 @@
 "use client";
 
+import { use } from "react";
 import { useRouter } from "next/navigation";
 import { ArrowLeft, Baby } from "lucide-react";
 import { mockEngine } from "@/services/mockEngine";
 import { Button, Card, PageHeader, StatusPill } from "@/components/ui";
 import Link from "next/link";
 
-export default function UserDetailPage({ params }: { params: { id: string } }) {
+export default function UserDetailPage({ params }: { params: Promise<{ id: string }> }) {
+  const { id } = use(params);
   const router = useRouter();
-  const user = mockEngine.getUser(params.id);
+  const user = mockEngine.getUser(id);
   if (!user) {
     return (
       <div className="py-20 text-center text-slate-400 dark:text-slate-500">

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, use } from "react";
 import { ArrowLeft, Loader2, RefreshCw } from "lucide-react";
 import { mockEngine } from "@/services/mockEngine";
 import { Button, Card, PageHeader, StatusPill } from "@/components/ui";
@@ -9,10 +9,11 @@ import type { ExerciseType, PhonemePosition } from "@/types/engine";
 const EXERCISE_TYPES: ExerciseType[] = ["picture_naming", "word_repetition", "minimal_pair", "sound_identification"];
 const POSITIONS: PhonemePosition[] = ["initial", "medial", "final"];
 
-export default function GameConfigPage({ params }: { params: { id: string } }) {
+export default function GameConfigPage({ params }: { params: Promise<{ id: string }> }) {
+  const { id } = use(params);
   const [, setTick] = useState(0);
   const [generating, setGenerating] = useState(false);
-  const game = mockEngine.getGame(params.id);
+  const game = mockEngine.getGame(id);
   const refresh = () => setTick((t) => t + 1);
 
   if (!game) return <div className="py-20 text-center text-slate-400 dark:text-slate-500">Game not found.</div>;

@@ -13,7 +13,7 @@ const nav = [
   {
     section: "Management",
     items: [
-      { label: "Users", href: "/users", icon: Users },
+      { label: "Users", href: "/users", icon: Users, adminOnly: true },
       { label: "Children", href: "/children", icon: Baby },
       { label: "Games", href: "/games", icon: Gamepad2 },
     ],
@@ -35,6 +35,13 @@ export default function Shell({ children, role, userName }: {
   userName: string;
 }) {
   const pathname = usePathname();
+  const isAdmin = role === "admin";
+  const visibleNav = nav
+    .map((group) => ({
+      ...group,
+      items: group.items.filter((item) => !item.adminOnly || isAdmin),
+    }))
+    .filter((group) => group.items.length > 0);
 
   return (
     <div className="flex min-h-screen bg-slate-100 dark:bg-slate-950">
@@ -49,7 +56,7 @@ export default function Shell({ children, role, userName }: {
           </div>
         </div>
         <nav className="px-3 py-3">
-          {nav.map((group) => (
+          {visibleNav.map((group) => (
             <div key={group.section} className="mb-4">
               <p className="px-3 pb-1 text-[10px] font-semibold uppercase tracking-wider text-slate-400 dark:text-slate-500">{group.section}</p>
               {group.items.map((item) => {

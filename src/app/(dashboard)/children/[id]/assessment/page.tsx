@@ -1,15 +1,16 @@
 "use client";
 
-import { useState } from "react";
+import { useState, use } from "react";
 import { ArrowLeft, Activity as ActivityIcon, RefreshCw } from "lucide-react";
 import { mockEngine } from "@/services/mockEngine";
 import { Button, Card, PageHeader, StatusPill } from "@/components/ui";
 
 const TEST_PHONEMES = ["/r/", "/s/", "/th/", "/k/", "/g/", "/ʃ/", "/θ/", "/l/"];
 
-export default function AssessmentPage({ params }: { params: { id: string } }) {
+export default function AssessmentPage({ params }: { params: Promise<{ id: string }> }) {
+  const { id } = use(params);
   const [, setTick] = useState(0);
-  const child = mockEngine.getChild(params.id);
+  const child = mockEngine.getChild(id);
   const refresh = () => setTick((t) => t + 1);
   const [running, setRunning] = useState(false);
   const [runProgress, setRunProgress] = useState<string[]>([]);
