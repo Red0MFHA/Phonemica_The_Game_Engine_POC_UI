@@ -15,7 +15,7 @@ export default function AssessmentPage({ params }: { params: { id: string } }) {
   const [runProgress, setRunProgress] = useState<string[]>([]);
 
   if (!child) {
-    return <div className="py-20 text-center text-slate-400">Child not found.</div>;
+    return <div className="py-20 text-center text-slate-400 dark:text-slate-500">Child not found.</div>;
   }
 
   function runDiagnostics() {
@@ -55,7 +55,7 @@ export default function AssessmentPage({ params }: { params: { id: string } }) {
 
       <div className="mb-6">
         <StatusPill value={child.assessmentStatus} />
-        <p className="mt-2 text-sm text-slate-500">
+        <p className="mt-2 text-sm text-slate-500 dark:text-slate-400">
           {child.assessmentStatus === "pending" && "No declared targets — a diagnostic run seeds them from the standard phoneme set."}
           {child.assessmentStatus === "declared" && "Parent/guardian declared initial target sounds. Run diagnostics for a data-backed re-evaluation."}
           {child.assessmentStatus === "diagnosed" && "Target sounds established by the adaptive engine from speech analysis."}
@@ -64,17 +64,17 @@ export default function AssessmentPage({ params }: { params: { id: string } }) {
 
       <Card title="Assessment summary">
         {results.length === 0 ? (
-          <p className="text-sm text-slate-400">No assessment results yet. Run diagnostics above.</p>
+          <p className="text-sm text-slate-400 dark:text-slate-500">No assessment results yet. Run diagnostics above.</p>
         ) : (
           <div className="space-y-3">
             {results.map((r) => (
-              <div key={r.phoneme} className="flex items-center justify-between rounded-lg border border-slate-100 px-4 py-3">
-                <span className="text-sm font-semibold text-slate-800">{r.phoneme}</span>
+              <div key={r.phoneme} className="flex items-center justify-between rounded-lg border border-slate-100 px-4 py-3 dark:border-slate-800">
+                <span className="text-sm font-semibold text-slate-800 dark:text-slate-100">{r.phoneme}</span>
                 <div className="flex items-center gap-4">
-                  <div className="h-2 w-40 overflow-hidden rounded-full bg-slate-100">
+                  <div className="h-2 w-40 overflow-hidden rounded-full bg-slate-100 dark:bg-slate-800">
                     <div className="h-full rounded-full bg-brand-600" style={{ width: `${r.accuracy}%` }} />
                   </div>
-                  <span className="w-12 text-right text-sm font-medium text-slate-700">{r.accuracy}%</span>
+                  <span className="w-12 text-right text-sm font-medium text-slate-700 dark:text-slate-300">{r.accuracy}%</span>
                 </div>
               </div>
             ))}
@@ -84,10 +84,10 @@ export default function AssessmentPage({ params }: { params: { id: string } }) {
 
       {(running || runProgress.length > 0) && (
         <Card title="Diagnostic run" className="mt-6">
-          <div className="flex items-center gap-2 text-sm text-slate-600"><ActivityIcon size={16} className="text-brand-600" /> Evaluating standard phoneme set…</div>
+          <div className="flex items-center gap-2 text-sm text-slate-600 dark:text-slate-300"><ActivityIcon size={16} className="text-brand-600" /> Evaluating standard phoneme set…</div>
           <ul className="mt-3 space-y-1">
             {runProgress.map((line, i) => (
-              <li key={i} className="text-xs text-slate-500">✓ {line}</li>
+              <li key={i} className="text-xs text-slate-500 dark:text-slate-400">✓ {line}</li>
             ))}
           </ul>
         </Card>

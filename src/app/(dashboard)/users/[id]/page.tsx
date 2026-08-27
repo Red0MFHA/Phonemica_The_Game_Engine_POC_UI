@@ -11,7 +11,7 @@ export default function UserDetailPage({ params }: { params: { id: string } }) {
   const user = mockEngine.getUser(params.id);
   if (!user) {
     return (
-      <div className="py-20 text-center text-slate-400">
+      <div className="py-20 text-center text-slate-400 dark:text-slate-500">
         <p>User not found.</p>
         <Button variant="ghost" href="/users" className="mt-4">Back to Users</Button>
       </div>
@@ -33,12 +33,12 @@ export default function UserDetailPage({ params }: { params: { id: string } }) {
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
         <Card title="Details" className="lg:col-span-1">
           <dl className="space-y-3 text-sm">
-            <div className="flex justify-between"><dt className="text-slate-500">Role</dt><dd className="capitalize font-medium text-slate-800">{user.role}</dd></div>
-            <div className="flex justify-between"><dt className="text-slate-500">Organization</dt><dd className="text-slate-800">{user.organization ?? "—"}</dd></div>
-            <div className="flex justify-between"><dt className="text-slate-500">Joined</dt><dd className="text-slate-800">{new Date(user.createdAt).toLocaleDateString()}</dd></div>
-            <div className="flex justify-between"><dt className="text-slate-500">Status</dt><dd><StatusPill value={user.status} /></dd></div>
+            <div className="flex justify-between"><dt className="text-slate-500 dark:text-slate-400">Role</dt><dd className="capitalize font-medium text-slate-800 dark:text-slate-100">{user.role}</dd></div>
+            <div className="flex justify-between"><dt className="text-slate-500 dark:text-slate-400">Organization</dt><dd className="text-slate-800 dark:text-slate-100">{user.organization ?? "—"}</dd></div>
+            <div className="flex justify-between"><dt className="text-slate-500 dark:text-slate-400">Joined</dt><dd className="text-slate-800 dark:text-slate-100">{new Date(user.createdAt).toLocaleDateString()}</dd></div>
+            <div className="flex justify-between"><dt className="text-slate-500 dark:text-slate-400">Status</dt><dd><StatusPill value={user.status} /></dd></div>
           </dl>
-          <div className="mt-4 border-t border-slate-100 pt-4">
+          <div className="mt-4 border-t border-slate-100 pt-4 dark:border-slate-800">
             <Button variant="secondary" onClick={() => {
               mockEngine.updateUser(user.id, { status: user.status === "active" ? "disabled" : "active" });
               router.refresh();
@@ -51,19 +51,19 @@ export default function UserDetailPage({ params }: { params: { id: string } }) {
 
         <Card title={user.role === "parent" ? "Children linked" : "Assigned children"} className="lg:col-span-2">
           {childUsers.length === 0 ? (
-            <p className="text-sm text-slate-400">No children linked to this user.</p>
+            <p className="text-sm text-slate-400 dark:text-slate-500">No children linked to this user.</p>
           ) : (
-            <ul className="divide-y divide-slate-100">
+            <ul className="divide-y divide-slate-100 dark:divide-slate-800">
               {childUsers.map((c) => (
                 <li key={c!.id} className="flex items-center justify-between py-3">
                   <div className="flex items-center gap-3">
-                    <div className="flex h-9 w-9 items-center justify-center rounded-full bg-brand-50 text-brand-700"><Baby size={16} /></div>
+                    <div className="flex h-9 w-9 items-center justify-center rounded-full bg-brand-50 text-brand-700 dark:bg-brand-900/40 dark:text-brand-300"><Baby size={16} /></div>
                     <div>
-                      <p className="text-sm font-medium text-slate-800">{c!.name}</p>
-                      <p className="text-xs text-slate-400">Age {c!.age} · {c!.assessmentStatus}</p>
+                      <p className="text-sm font-medium text-slate-800 dark:text-slate-100">{c!.name}</p>
+                      <p className="text-xs text-slate-400 dark:text-slate-500">Age {c!.age} · {c!.assessmentStatus}</p>
                     </div>
                   </div>
-                  <Link href={`/children/${c!.id}`} className="text-sm font-medium text-brand-700 hover:underline">View →</Link>
+                  <Link href={`/children/${c!.id}`} className="text-sm font-medium text-brand-700 hover:underline dark:text-brand-300">View →</Link>
                 </li>
               ))}
             </ul>

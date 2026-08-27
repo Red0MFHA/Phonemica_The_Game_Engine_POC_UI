@@ -5,7 +5,7 @@ export interface AuthSession {
   role: "admin" | "therapist";
 }
 
-const KEY = "phonova-auth";
+const KEY = "phonemica-auth";
 
 export function getAuth(): AuthSession | null {
   if (typeof window === "undefined") return null;

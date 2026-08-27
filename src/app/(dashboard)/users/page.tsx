@@ -27,18 +27,18 @@ export default function UsersPage() {
 
       <div className="mb-4 flex items-center gap-3">
         <div className="relative">
-          <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+          <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 dark:text-slate-500" />
           <input
             value={q}
             onChange={(e) => setQ(e.target.value)}
             placeholder="Search users…"
-            className="w-64 rounded-lg border border-slate-300 py-2 pl-9 pr-3 text-sm outline-none focus:border-brand-600"
+            className="w-64 rounded-lg border border-slate-300 py-2 pl-9 pr-3 text-sm outline-none focus:border-brand-600 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
           />
         </div>
         <select
           value={role}
           onChange={(e) => setRole(e.target.value)}
-          className="rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none focus:border-brand-600"
+          className="rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none focus:border-brand-600 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
         >
           <option value="all">All roles</option>
           <option value="admin">Admin</option>
@@ -47,9 +47,9 @@ export default function UsersPage() {
         </select>
       </div>
 
-      <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+      <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm dark:border-slate-700 dark:bg-slate-900">
         <table className="w-full text-sm">
-          <thead className="border-b border-slate-100 bg-slate-50 text-left text-xs font-semibold uppercase tracking-wider text-slate-500">
+          <thead className="border-b border-slate-100 bg-slate-50 text-left text-xs font-semibold uppercase tracking-wider text-slate-500 dark:border-slate-800 dark:bg-slate-800/60 dark:text-slate-400">
             <tr>
               <th className="px-5 py-3">Name</th>
               <th className="px-5 py-3">Email</th>
@@ -59,28 +59,28 @@ export default function UsersPage() {
               <th className="px-5 py-3">Children</th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-slate-100">
+          <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
             {filtered.map((u) => {
               const childCount =
                 (u.therapistChildrenIds?.length ?? 0) + (u.parentChildrenIds?.length ?? 0);
               return (
-                <tr key={u.id} className="hover:bg-slate-50">
+                <tr key={u.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/60">
                   <td className="px-5 py-3">
-                    <Link href={`/users/${u.id}`} className="font-medium text-brand-700 hover:underline">
+                    <Link href={`/users/${u.id}`} className="font-medium text-brand-700 hover:underline dark:text-brand-300">
                       {u.name}
                     </Link>
                   </td>
-                  <td className="px-5 py-3 text-slate-600">{u.email}</td>
-                  <td className="px-5 py-3 capitalize text-slate-600">{u.role}</td>
-                  <td className="px-5 py-3 text-slate-600">{u.organization ?? "—"}</td>
+                  <td className="px-5 py-3 text-slate-600 dark:text-slate-300">{u.email}</td>
+                  <td className="px-5 py-3 capitalize text-slate-600 dark:text-slate-300">{u.role}</td>
+                  <td className="px-5 py-3 text-slate-600 dark:text-slate-300">{u.organization ?? "—"}</td>
                   <td className="px-5 py-3"><StatusPill value={u.status} /></td>
-                  <td className="px-5 py-3 text-slate-600">{childCount}</td>
+                  <td className="px-5 py-3 text-slate-600 dark:text-slate-300">{childCount}</td>
                 </tr>
               );
             })}
             {filtered.length === 0 && (
               <tr>
-                <td colSpan={6} className="px-5 py-10 text-center text-slate-400">
+                <td colSpan={6} className="px-5 py-10 text-center text-slate-400 dark:text-slate-500">
                   <UsersIcon className="mx-auto mb-2" /> No users match your filters.
                 </td>
               </tr>

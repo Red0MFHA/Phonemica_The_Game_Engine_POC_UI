@@ -16,7 +16,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   }, [router, session]);
 
   if (!session) {
-    return <div className="flex min-h-screen items-center justify-center text-sm text-slate-400">Loading PHONOVA Engine…</div>;
+    return <div className="flex min-h-screen items-center justify-center bg-white text-sm text-slate-400 dark:bg-slate-950 dark:text-slate-500">Loading Phonemica Engine…</div>;
   }
 
   return (

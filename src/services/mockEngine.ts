@@ -4,6 +4,7 @@ import type {
   Child,
   ChildAnalytics,
   DashboardSummary,
+  Exercise,
   Game,
   Level,
   PhonemeStats,
@@ -20,12 +21,12 @@ function iso(offsetDays = 0, hours = 10): string {
 }
 
 const users: User[] = [
-  { id: "u1", name: "Dr. Amara Singh", email: "amara@phonova.io", role: "therapist", organization: "Child Speech Clinic", status: "active", createdAt: iso(120), therapistChildrenIds: ["c1", "c2", "c3", "c4", "c5"] },
-  { id: "u2", name: "Steve Okafor", email: "steve@phonova.io", role: "admin", status: "active", createdAt: iso(200), therapistChildrenIds: [] },
-  { id: "u3", name: "Layla Haddad", email: "layla@phonova.io", role: "therapist", organization: "Bright Voices", status: "active", createdAt: iso(90), therapistChildrenIds: ["c6", "c7", "c8"] },
+  { id: "u1", name: "Dr. Amara Singh", email: "amara@phonemica.io", role: "therapist", organization: "Child Speech Clinic", status: "active", createdAt: iso(120), therapistChildrenIds: ["c1", "c2", "c3", "c4", "c5"] },
+  { id: "u2", name: "Steve Okafor", email: "steve@phonemica.io", role: "admin", status: "active", createdAt: iso(200), therapistChildrenIds: [] },
+  { id: "u3", name: "Layla Haddad", email: "layla@phonemica.io", role: "therapist", organization: "Bright Voices", status: "active", createdAt: iso(90), therapistChildrenIds: ["c6", "c7", "c8"] },
   { id: "u4", name: "Maria Gomez", email: "maria.gomez@gmail.com", role: "parent", status: "active", createdAt: iso(60), parentChildrenIds: ["c1", "c6"] },
   { id: "u5", name: "Rahul Verma", email: "rahul.verma@gmail.com", role: "parent", status: "active", createdAt: iso(45), parentChildrenIds: ["c2"] },
-  { id: "u6", name: "Tariq Nasir", email: "tariq@phonova.io", role: "therapist", organization: "Child Speech Clinic", status: "pending", createdAt: iso(5), therapistChildrenIds: [] },
+  { id: "u6", name: "Tariq Nasir", email: "tariq@phonemica.io", role: "therapist", organization: "Child Speech Clinic", status: "pending", createdAt: iso(5), therapistChildrenIds: [] },
 ];
 
 const GAMES: Game[] = [
@@ -171,6 +172,39 @@ const activity: Activity[] = [
 ];
 
 const levels: Record<string, Level[]> = {};
+
+const PHONEME_NAMES: Record<string, string> = {
+  "/r/": "Labio-alveolar approximant",
+  "/s/": "Voiceless alveolar fricative",
+  "/th/": "Voiceless dental fricative",
+  "/k/": "Voiceless velar plosive",
+  "/g/": "Voiced velar plosive",
+  "/ʃ/": "Voiceless postalveolar fricative",
+  "/θ/": "Voiceless dental fricative",
+  "/ð/": "Voiced dental fricative",
+  "/l/": "Alveolar lateral approximant",
+};
+
+const CONTENT_BANK = [
+  { phoneme: "/r/", words: ["rabbit", "robot", "rainbow", "rocket", "ring", "river"], position: "initial", difficulty: 0.2 },
+  { phoneme: "/r/", words: ["car", "star", "bear", "pear"], position: "final", difficulty: 0.4 },
+  { phoneme: "/s/", words: ["sun", "sand", "seven", "spoon", "star", "seat"], position: "initial", difficulty: 0.3 },
+  { phoneme: "/s/", words: ["bus", "house", "mouse", "dress"], position: "final", difficulty: 0.5 },
+  { phoneme: "/th/", words: ["three", "thumb", "thorn", "think", "thirsty"], position: "initial", difficulty: 0.4 },
+  { phoneme: "/k/", words: ["cat", "cake", "kite", "car", "key", "cup"], position: "initial", difficulty: 0.3 },
+  { phoneme: "/g/", words: ["goat", "gate", "gift", "goose", "garden"], position: "initial", difficulty: 0.4 },
+  { phoneme: "/ʃ/", words: ["ship", "shoe", "shark", "sheep", "shell"], position: "initial", difficulty: 0.5 },
+  { phoneme: "/θ/", words: ["thumb", "theater", "thousand", "throne"], position: "initial", difficulty: 0.6 },
+  { phoneme: "/ð/", words: ["this", "that", "mother", "father", "feather"], position: "medial", difficulty: 0.6 },
+  { phoneme: "/l/", words: ["lion", "leaf", "lamp", "ladder", "lock", "lunch"], position: "initial", difficulty: 0.3 },
+] as const;
+
+const EXERCISE_TEMPLATES: Record<string, { prompt: (w: string) => string }> = {
+  picture_naming: { prompt: (w) => `Look at the picture and say “${w}”.` },
+  word_repetition: { prompt: (w) => `Listen and repeat “${w}”.` },
+  minimal_pair: { prompt: (w) => `Say “${w}” — which word is different?` },
+  sound_identification: { prompt: (w) => `Find the sound in “${w}”.` },
+};
 
 GAMES.forEach((game) => {
   const list: Level[] = [];
@@ -371,5 +405,51 @@ export const mockEngine = {
   },
   getGameName(id: string): string {
     return GAMES.find((g) => g.id === id)?.name ?? id;
+  },
+
+  getContentBank(): { phoneme: string; words: readonly string[]; position: string; difficulty: number }[] {
+    return [...CONTENT_BANK].map((c) => ({ ...c }));
+  },
+  getPhonemeInfo(): { phoneme: string; name: string; occurrences: number }[] {
+    return Object.keys(PHONEME_NAMES).map((p) => ({
+      phoneme: p,
+      name: PHONEME_NAMES[p],
+      occurrences: CONTENT_BANK.filter((c) => c.phoneme === p).reduce((a, c) => a + c.words.length, 0),
+    }));
+  },
+  getExercises(limit = 24): Exercise[] {
+    const pool: Exercise[] = [];
+    GAMES.forEach((game) => {
+      game.capabilities.exerciseTypes.forEach((type, ti) => {
+        CONTENT_BANK.slice(0, 12).forEach((c, ci) => {
+          if (!game.capabilities.positions.includes(c.position as never)) return;
+          const word = c.words[(ti + ci) % c.words.length];
+          const diff = Math.min(game.capabilities.difficultyMax, Math.max(game.capabilities.difficultyMin, c.difficulty * 10));
+          pool.push({
+            id: `${game.id}-ex-${ti}-${ci}`,
+            type,
+            targetPhoneme: c.phoneme,
+            word,
+            difficulty: Math.round(diff * 100) / 100,
+            position: c.position as Exercise["position"],
+            prompt: EXERCISE_TEMPLATES[type].prompt(word),
+            media: { imageUrl: undefined, audioUrl: undefined },
+            levelId: game.id,
+          });
+        });
+      });
+    });
+    return pool.slice(0, limit);
+  },
+  getExerciseCount(): number {
+    return CONTENT_BANK.reduce((a, c) => a + c.words.length, 0) * GAMES.length;
+  },
+  getGameCopy(gameId: string): { about: string; how: string; forWho: string } {
+    const g = this.getGame(gameId);
+    return {
+      about: g?.description ?? "A Phonemica Engine game.",
+      how: `Children practise target sounds through ${(g?.capabilities.exerciseTypes ?? []).map((t) => t.replace("_", " ")).join(", ")} while playing ${g?.mechanics.join(" and ") ?? "a game"}. The engine adapts difficulty live to keep it challenging yet winnable for ages ${g?.ageRangeMin}–${g?.ageRangeMax}.`,
+      forWho: `Best for early learners (${g?.ageRangeMin}–${g?.ageRangeMax}) targeting ${g?.wordStyle.toLowerCase()} vocabulary. Perfect for ${g?.ageRangeMin === 5 ? "kindergarten " : ""}speech therapy practice.`,
+    };
   },
 };
