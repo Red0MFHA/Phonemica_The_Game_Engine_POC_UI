@@ -5,6 +5,7 @@ import type {
   ChildAnalytics,
   DashboardSummary,
   Exercise,
+  ExerciseType,
   Game,
   Level,
   PhonemeStats,
@@ -225,6 +226,29 @@ GAMES.forEach((game) => {
 });
 
 const attemptsCache = new Map<string, ChildAnalytics>();
+
+const exerciseStore: Record<string, Exercise> = {};
+
+const TYPE_POOL: ExerciseType[] = ["picture_naming", "word_repetition", "minimal_pair", "sound_identification"];
+
+function buildExerciseForLevel(id: string, level: Level): Exercise {
+  const seed = id.split("").reduce((a, c) => a + c.charCodeAt(0), 0);
+  const bank = CONTENT_BANK[seed % CONTENT_BANK.length];
+  const type = TYPE_POOL[seed % TYPE_POOL.length];
+  const word = bank.words[Math.floor(seed / 3) % bank.words.length];
+  const diff = Math.round(bank.difficulty * 10) / 10;
+  return {
+    id,
+    type,
+    targetPhoneme: bank.phoneme,
+    word,
+    difficulty: diff,
+    position: bank.position as Exercise["position"],
+    prompt: EXERCISE_TEMPLATES[type].prompt(word),
+    media: {},
+    levelId: level.id,
+  };
+}
 
 export const mockEngine = {
   getDashboard(): DashboardSummary {
@@ -451,5 +475,54 @@ export const mockEngine = {
       how: `Children practise target sounds through ${(g?.capabilities.exerciseTypes ?? []).map((t) => t.replace("_", " ")).join(", ")} while playing ${g?.mechanics.join(" and ") ?? "a game"}. The engine adapts difficulty live to keep it challenging yet winnable for ages ${g?.ageRangeMin}–${g?.ageRangeMax}.`,
       forWho: `Best for early learners (${g?.ageRangeMin}–${g?.ageRangeMax}) targeting ${g?.wordStyle.toLowerCase()} vocabulary. Perfect for ${g?.ageRangeMin === 5 ? "kindergarten " : ""}speech therapy practice.`,
     };
+  },
+
+  getLevel(levelId: string): Level | undefined {
+    for (const key of Object.keys(levels)) {
+      const lv = levels[key].find((l) => l.id === levelId);
+      if (lv) return lv;
+    }
+    return undefined;
+  },
+
+  getLevelExercises(levelId: string): Exercise[] {
+    const level = this.getLevel(levelId);
+    if (!level) return [];
+    return level.exerciseIds.map((id) => exerciseStore[id] ?? (exerciseStore[id] = buildExerciseForLevel(id, level)));
+  },
+
+  updateExercise(id: string, patch: Partial<Exercise>): Exercise | undefined {
+    const ex = exerciseStore[id];
+    if (!ex) return undefined;
+    const next = { ...ex, ...patch };
+    if (patch.word) next.prompt = EXERCISE_TEMPLATES[ex.type]?.prompt(patch.word) ?? next.prompt;
+    exerciseStore[id] = next;
+    return next;
+  },
+
+  addExercise(levelId: string, input: Omit<Exercise, "id" | "levelId" | "prompt" | "media">): Exercise | undefined {
+    const level = this.getLevel(levelId);
+    if (!level) return undefined;
+    const id = `${levelId}-manual-${level.exerciseIds.length + 1}-${Date.now()}`;
+    const ex: Exercise = {
+      ...input,
+      id,
+      levelId,
+      media: {},
+      prompt: EXERCISE_TEMPLATES[input.type]?.prompt(input.word) ?? `Say “${input.word}”.`,
+    };
+    exerciseStore[id] = ex;
+    level.exerciseIds.push(id);
+    return ex;
+  },
+
+  removeExercise(id: string): void {
+    const ex = exerciseStore[id];
+    if (!ex) return;
+    delete exerciseStore[id];
+    if (ex.levelId) {
+      const lv = this.getLevel(ex.levelId);
+      if (lv) lv.exerciseIds = lv.exerciseIds.filter((x) => x !== id);
+    }
   },
 };

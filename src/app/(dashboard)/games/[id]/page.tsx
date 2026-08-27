@@ -1,11 +1,14 @@
 "use client";
 
+import { use } from "react";
+import Link from "next/link";
 import { ArrowLeft, Gamepad2, Layers, FileText, KeyRound, Sparkles, PlayCircle, Users } from "lucide-react";
 import { mockEngine } from "@/services/mockEngine";
 import { Button, Card, PageHeader, StatusPill } from "@/components/ui";
 
-export default function GameDetailPage({ params }: { params: { id: string } }) {
-  const game = mockEngine.getGame(params.id);
+export default function GameDetailPage({ params }: { params: Promise<{ id: string }> }) {
+  const { id } = use(params);
+  const game = mockEngine.getGame(id);
   if (!game) return <div className="py-20 text-center text-slate-400">Game not found.</div>;
   const levels = mockEngine.getLevels(game.id);
   const copy = mockEngine.getGameCopy(game.id);
@@ -59,15 +62,18 @@ export default function GameDetailPage({ params }: { params: { id: string } }) {
       <Card title="Levels" className="mt-6">
         <ul className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3">
           {levels.map((lv) => (
-            <li key={lv.id} className="flex items-center justify-between rounded-lg border border-slate-100 px-4 py-3 dark:border-slate-800">
-              <div className="flex items-center gap-3">
+            <li key={lv.id} className="flex items-center justify-between rounded-lg border border-slate-100 px-4 py-3 transition-colors hover:border-brand-300 hover:bg-brand-50/40 dark:border-slate-800 dark:hover:border-brand-700 dark:hover:bg-slate-800/60">
+              <Link href={`/games/${game.id}/levels/${lv.id}`} className="flex flex-1 items-center gap-3">
                 <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-brand-50 text-brand-700 dark:bg-brand-900/40 dark:text-brand-300"><Gamepad2 size={15} /></div>
                 <div>
                   <p className="text-sm font-medium text-slate-800 dark:text-slate-200">Level {lv.index}</p>
                   <p className="text-xs text-slate-400 dark:text-slate-500">{lv.exerciseIds.length} exercises</p>
                 </div>
+              </Link>
+              <div className="text-right">
+                <span className="text-xs text-slate-500 dark:text-slate-400">diff {lv.difficulty}</span>
+                <Link href={`/games/${game.id}/levels/${lv.id}`} className="mt-1 block text-xs font-medium text-brand-600 hover:underline dark:text-brand-400">Edit words →</Link>
               </div>
-              <span className="text-xs text-slate-500 dark:text-slate-400">diff {lv.difficulty}</span>
             </li>
           ))}
           {levels.length === 0 && <li className="text-sm text-slate-400">No levels generated yet.</li>}
