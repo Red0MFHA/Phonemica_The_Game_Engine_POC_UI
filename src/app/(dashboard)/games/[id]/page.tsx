@@ -66,8 +66,8 @@ export default function GameDetailPage({ params }: { params: Promise<{ id: strin
               <Link href={`/games/${game.id}/levels/${lv.id}`} className="flex flex-1 items-center gap-3">
                 <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-brand-50 text-brand-700 dark:bg-brand-900/40 dark:text-brand-300"><Gamepad2 size={15} /></div>
                 <div>
-                  <p className="text-sm font-medium text-slate-800 dark:text-slate-200">Level {lv.index}</p>
-                  <p className="text-xs text-slate-400 dark:text-slate-500">{lv.exerciseIds.length} exercises</p>
+                  <p className="text-sm font-medium text-slate-800 dark:text-slate-200">{lv.title}</p>
+                  <p className="text-xs text-slate-400 dark:text-slate-500">{lv.phase ? `${lv.phase} · ` : ""}{lv.exerciseIds.length} exercises</p>
                 </div>
               </Link>
               <div className="text-right">

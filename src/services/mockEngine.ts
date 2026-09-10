@@ -11,6 +11,7 @@ import type {
   PhonemeStats,
   RegisterGameInput,
   SessionRecord,
+  TherapyPhase,
   User,
 } from "@/types/engine";
 
@@ -33,11 +34,11 @@ const users: User[] = [
 const GAMES: Game[] = [
   {
     id: "g1", name: "Jungle Quest", shortId: "jungle-quest",
-    description: "Magical jungle exploration where speech exercises move your explorer through trails.",
+    description: "Sound Island therapy loop: Echo Cave isolation, Drum Bridge mass practice, Twin Falls discrimination, Hidden Grove word hunt, Story Fire storytelling.",
     developer: "Phonemica", version: "1.2.0", status: "active", ageRangeMin: 5, ageRangeMax: 8,
-    capabilities: { exerciseTypes: ["picture_naming", "word_repetition", "minimal_pair", "sound_identification"], positions: ["initial", "medial", "final"], difficultyMin: 1, difficultyMax: 10 },
-    mechanics: ["Movement", "Collection"], theme: "Jungle Adventure", wordStyle: "Animal & Nature",
-    preferredContent: "animal words", mediaTypes: ["image", "audio"], levelCount: 9, exerciseCount: 42,
+    capabilities: { exerciseTypes: ["isolation", "repetition_drill", "discrimination", "word_hunt", "storytelling"], positions: ["initial", "medial", "final"], difficultyMin: 1, difficultyMax: 10 },
+    mechanics: ["Mirror", "Mass practice", "Listen-and-act", "Hide-and-seek", "Story choice"], theme: "Jungle Adventure / Sound Island", wordStyle: "Animal & Nature",
+    preferredContent: "animal words · isolation to story loop", mediaTypes: ["image", "audio"], levelCount: 5, exerciseCount: 33,
     generatedAt: iso(30), connectedChildren: 42, sessions: 612, apiKey: "pk_jungle_****3f2a",
   },
   {
@@ -62,7 +63,7 @@ const GAMES: Game[] = [
 
 const children: Child[] = [
   { id: "c1", name: "Mina Khan", age: 6, gender: "female", parentUserId: "u4", therapistUserId: "u1", assessmentStatus: "diagnosed", createdAt: iso(40), targets: [{ phoneme: "/r/", source: "diagnosed", note: "substitution /r/ → /w/" }, { phoneme: "/th/", source: "declared" }], assignments: [
-    { gameId: "g1", source: "engine", reason: "target /r/ matched · supports picture_naming", assignedAt: iso(20), active: true },
+    { gameId: "g1", source: "engine", reason: "target /r/ matched · supports isolation + word_hunt", assignedAt: iso(20), active: true },
     { gameId: "g2", source: "engine", reason: "target /th/ matched · initial+final supported", assignedAt: iso(20), active: true },
   ] },
   { id: "c2", name: "Leo Martin", age: 7, gender: "male", parentUserId: "u5", therapistUserId: "u1", assessmentStatus: "declared", createdAt: iso(35), targets: [{ phoneme: "/s/", source: "declared" }], assignments: [
@@ -112,12 +113,13 @@ function buildAnalytics(childId: string): ChildAnalytics {
     return { phoneme: p, accuracy, attempts, correct, errorRate: 100 - accuracy, trend, mastery };
   });
 
-  const errorTypes = ["substitution", "omission", "distortion", "none"] as const;
+  const errorTypes = ["substitution", "omission", "distortion", "addition", "none"] as const;
   const errorDistribution = errorTypes.map((et) => {
     let count: number;
     if (et === "substitution") count = Math.floor(rand() * 60) + 20;
     else if (et === "omission") count = Math.floor(rand() * 25);
     else if (et === "distortion") count = Math.floor(rand() * 20);
+    else if (et === "addition") count = Math.floor(rand() * 12);
     else count = Math.floor(rand() * 15);
     return { errorType: et as typeof et, count };
   });
@@ -142,13 +144,14 @@ function buildAnalytics(childId: string): ChildAnalytics {
   }
 
   const weakest = [...perPhoneme].sort((a, b) => a.accuracy - b.accuracy)[0];
+  const stepBack = weakest.accuracy < 55;
   const recommendation = {
     phoneme: weakest.phoneme,
     recommendedDifficulty: Math.round(weakest.accuracy / 25) / 10 + 0.1,
-    recommendedExercise: (weakest.accuracy < 45 ? "picture_naming" : "word_repetition") as "picture_naming" | "word_repetition",
-    reason: `${weakest.phoneme} demonstrates persistent ${
-      weakest.accuracy < 50 ? "substitution errors" : "inconsistent production"
-    } (accuracy ${weakest.accuracy}%). Adaptive engine suggests a controlled target.`,
+    recommendedExercise: (stepBack ? "isolation" : weakest.accuracy < 70 ? "word_hunt" : "storytelling") as ExerciseType,
+    reason: stepBack
+      ? `${weakest.phoneme} shows persistent substitution (e.g. /r/ → /w/). Step back to isolation — Echo Cave — before word_hunt.`
+      : `${weakest.phoneme} is developing. Continue Hidden Grove word_hunt, then Story Fire.`,
     source: "adaptive-engine" as const,
   };
 
@@ -159,7 +162,11 @@ function buildAnalytics(childId: string): ChildAnalytics {
     exercises: sessions.length * 10,
   };
 
-  return { childId, totals, perPhoneme, errorDistribution, positionBreakdown, sessionHistory: sessions, recommendation };
+  const therapyLoop = child.assignments.some((a) => a.gameId === "g1")
+    ? { phase: (stepBack ? "isolation" : "words") as TherapyPhase, campId: stepBack ? "echo-cave" : "hidden-grove", campTitle: stepBack ? "Echo Cave" : "Hidden Grove" }
+    : undefined;
+
+  return { childId, totals, perPhoneme, errorDistribution, positionBreakdown, sessionHistory: sessions, recommendation, therapyLoop };
 }
 
 const activity: Activity[] = [
@@ -187,17 +194,22 @@ const PHONEME_NAMES: Record<string, string> = {
 };
 
 const CONTENT_BANK = [
-  { phoneme: "/r/", words: ["rabbit", "robot", "rainbow", "rocket", "ring", "river"], position: "initial", difficulty: 0.2 },
-  { phoneme: "/r/", words: ["car", "star", "bear", "pear"], position: "final", difficulty: 0.4 },
-  { phoneme: "/s/", words: ["sun", "sand", "seven", "spoon", "star", "seat"], position: "initial", difficulty: 0.3 },
-  { phoneme: "/s/", words: ["bus", "house", "mouse", "dress"], position: "final", difficulty: 0.5 },
-  { phoneme: "/th/", words: ["three", "thumb", "thorn", "think", "thirsty"], position: "initial", difficulty: 0.4 },
-  { phoneme: "/k/", words: ["cat", "cake", "kite", "car", "key", "cup"], position: "initial", difficulty: 0.3 },
-  { phoneme: "/g/", words: ["goat", "gate", "gift", "goose", "garden"], position: "initial", difficulty: 0.4 },
-  { phoneme: "/ʃ/", words: ["ship", "shoe", "shark", "sheep", "shell"], position: "initial", difficulty: 0.5 },
-  { phoneme: "/θ/", words: ["thumb", "theater", "thousand", "throne"], position: "initial", difficulty: 0.6 },
-  { phoneme: "/ð/", words: ["this", "that", "mother", "father", "feather"], position: "medial", difficulty: 0.6 },
-  { phoneme: "/l/", words: ["lion", "leaf", "lamp", "ladder", "lock", "lunch"], position: "initial", difficulty: 0.3 },
+  { phoneme: "/r/", words: ["rrr"], position: "initial", difficulty: 0.1, type: "isolation" as const },
+  { phoneme: "/r/", words: ["rrr"], position: "initial", difficulty: 0.25, type: "repetition_drill" as const },
+  { phoneme: "/r/", words: ["rah", "wah"], position: "initial", difficulty: 0.4, type: "discrimination" as const },
+  { phoneme: "/r/", words: ["rabbit", "robot", "rainbow", "rocket", "ring", "river"], position: "initial", difficulty: 0.55, type: "word_hunt" as const },
+  { phoneme: "/r/", words: ["carrot", "parrot", "berry"], position: "medial", difficulty: 0.62, type: "word_hunt" as const },
+  { phoneme: "/r/", words: ["car", "star", "bear"], position: "final", difficulty: 0.7, type: "word_hunt" as const },
+  { phoneme: "/r/", words: ["rabbit", "river", "robot"], position: "initial", difficulty: 0.8, type: "storytelling" as const },
+  { phoneme: "/s/", words: ["sun", "sand", "seven", "spoon", "star", "seat"], position: "initial", difficulty: 0.3, type: "word_hunt" as const },
+  { phoneme: "/s/", words: ["bus", "house", "mouse", "dress"], position: "final", difficulty: 0.5, type: "word_hunt" as const },
+  { phoneme: "/th/", words: ["three", "thumb", "thorn", "think", "thirsty"], position: "initial", difficulty: 0.4, type: "word_hunt" as const },
+  { phoneme: "/k/", words: ["cat", "cake", "kite", "car", "key", "cup"], position: "initial", difficulty: 0.3, type: "word_hunt" as const },
+  { phoneme: "/g/", words: ["goat", "gate", "gift", "goose", "garden"], position: "initial", difficulty: 0.4, type: "picture_naming" as const },
+  { phoneme: "/ʃ/", words: ["ship", "shoe", "shark", "sheep", "shell"], position: "initial", difficulty: 0.5, type: "picture_naming" as const },
+  { phoneme: "/θ/", words: ["thumb", "theater", "thousand", "throne"], position: "initial", difficulty: 0.6, type: "picture_naming" as const },
+  { phoneme: "/ð/", words: ["this", "that", "mother", "father", "feather"], position: "medial", difficulty: 0.6, type: "picture_naming" as const },
+  { phoneme: "/l/", words: ["lion", "leaf", "lamp", "ladder", "lock", "lunch"], position: "initial", difficulty: 0.3, type: "word_hunt" as const },
 ] as const;
 
 const EXERCISE_TEMPLATES: Record<string, { prompt: (w: string) => string }> = {
@@ -205,22 +217,50 @@ const EXERCISE_TEMPLATES: Record<string, { prompt: (w: string) => string }> = {
   word_repetition: { prompt: (w) => `Listen and repeat “${w}”.` },
   minimal_pair: { prompt: (w) => `Say “${w}” — which word is different?` },
   sound_identification: { prompt: (w) => `Find the sound in “${w}”.` },
+  isolation: { prompt: () => `Copy the parrot.` },
+  repetition_drill: { prompt: () => `Hop the stones — same sound, new pace.` },
+  discrimination: { prompt: () => `Wake the rabbit only on the target sound.` },
+  word_hunt: { prompt: (w) => `Find and say “${w}”.` },
+  storytelling: { prompt: (w) => `Help the story — say “${w}”.` },
 };
+
+const JUNGLE_CAMPS: { id: string; title: string; phase: TherapyPhase; type: ExerciseType }[] = [
+  { id: "echo-cave", title: "Echo Cave", phase: "isolation", type: "isolation" },
+  { id: "drum-bridge", title: "Drum Bridge", phase: "repetition", type: "repetition_drill" },
+  { id: "twin-falls", title: "Twin Falls", phase: "discrimination", type: "discrimination" },
+  { id: "hidden-grove", title: "Hidden Grove", phase: "words", type: "word_hunt" },
+  { id: "story-fire", title: "Story Fire", phase: "story", type: "storytelling" },
+];
 
 GAMES.forEach((game) => {
   const list: Level[] = [];
-  const count = Math.min(game.levelCount, 9);
-  for (let i = 0; i < count; i++) {
-    const diff = game.capabilities.difficultyMin + (i / Math.max(count - 1, 1)) * (game.capabilities.difficultyMax - game.capabilities.difficultyMin);
-    const eCount = 5 + (i % 3);
-    list.push({
-      id: `${game.id}-lv${i + 1}`,
-      gameId: game.id,
-      index: i + 1,
-      title: `Level ${i + 1}`,
-      difficulty: Math.round(diff * 100) / 100,
-      exerciseIds: Array.from({ length: eCount }, (_, k) => `${game.id}-ex-${i}-${k}`),
+  if (game.shortId === "jungle-quest") {
+    JUNGLE_CAMPS.forEach((camp, i) => {
+      const eCount = camp.type === "repetition_drill" ? 12 : camp.type === "discrimination" ? 10 : camp.type === "word_hunt" ? 6 : camp.type === "isolation" ? 3 : 2;
+      list.push({
+        id: camp.id,
+        gameId: game.id,
+        index: i + 1,
+        title: camp.title,
+        difficulty: Math.round((0.15 + i * 0.15) * 100) / 100,
+        phase: camp.phase,
+        exerciseIds: Array.from({ length: eCount }, (_, k) => `${camp.id}-ex-${k}`),
+      });
     });
+  } else {
+    const count = Math.min(game.levelCount, 9);
+    for (let i = 0; i < count; i++) {
+      const diff = game.capabilities.difficultyMin + (i / Math.max(count - 1, 1)) * (game.capabilities.difficultyMax - game.capabilities.difficultyMin);
+      const eCount = 5 + (i % 3);
+      list.push({
+        id: `${game.id}-lv${i + 1}`,
+        gameId: game.id,
+        index: i + 1,
+        title: `Level ${i + 1}`,
+        difficulty: Math.round(diff * 100) / 100,
+        exerciseIds: Array.from({ length: eCount }, (_, k) => `${game.id}-ex-${i}-${k}`),
+      });
+    }
   }
   levels[game.id] = list;
 });
@@ -229,12 +269,13 @@ const attemptsCache = new Map<string, ChildAnalytics>();
 
 const exerciseStore: Record<string, Exercise> = {};
 
-const TYPE_POOL: ExerciseType[] = ["picture_naming", "word_repetition", "minimal_pair", "sound_identification"];
+const TYPE_POOL: ExerciseType[] = ["picture_naming", "word_repetition", "minimal_pair", "sound_identification", "isolation", "repetition_drill", "discrimination", "word_hunt", "storytelling"];
 
 function buildExerciseForLevel(id: string, level: Level): Exercise {
   const seed = id.split("").reduce((a, c) => a + c.charCodeAt(0), 0);
-  const bank = CONTENT_BANK[seed % CONTENT_BANK.length];
-  const type = TYPE_POOL[seed % TYPE_POOL.length];
+  const camp = JUNGLE_CAMPS.find((c) => c.id === level.id);
+  const type = camp?.type ?? TYPE_POOL[seed % 4];
+  const bank = CONTENT_BANK.find((c) => c.type === type && c.phoneme === "/r/") ?? CONTENT_BANK[seed % CONTENT_BANK.length];
   const word = bank.words[Math.floor(seed / 3) % bank.words.length];
   const diff = Math.round(bank.difficulty * 10) / 10;
   return {
@@ -244,9 +285,18 @@ function buildExerciseForLevel(id: string, level: Level): Exercise {
     word,
     difficulty: diff,
     position: bank.position as Exercise["position"],
-    prompt: EXERCISE_TEMPLATES[type].prompt(word),
+    prompt: EXERCISE_TEMPLATES[type]?.prompt(word) ?? `Say “${word}”.`,
     media: {},
     levelId: level.id,
+    phase: camp?.phase ?? level.phase,
+    viseme: type === "isolation" ? "RR" : undefined,
+    tempo: type === "repetition_drill" ? (["slow", "fast", "paused"] as const)[seed % 3] : undefined,
+    foils: type === "discrimination" ? ["wah"] : undefined,
+    choices: type === "storytelling" ? [
+      { word: "rabbit", imageKey: "rabbit", correct: true },
+      { word: "river", imageKey: "river", correct: false },
+      { word: "robot", imageKey: "robot", correct: false },
+    ] : undefined,
   };
 }
 
@@ -398,6 +448,21 @@ export const mockEngine = {
   },
   generateContent(gameId: string): { levels: number; exercises: number; generatedAt: string } {
     const g = this.getGame(gameId)!;
+    if (g.shortId === "jungle-quest") {
+      g.levelCount = 5;
+      g.exerciseCount = 33;
+      g.generatedAt = iso(0);
+      levels[gameId] = JUNGLE_CAMPS.map((camp, i) => ({
+        id: camp.id,
+        gameId,
+        index: i + 1,
+        title: camp.title,
+        difficulty: Math.round((0.15 + i * 0.15) * 100) / 100,
+        phase: camp.phase,
+        exerciseIds: Array.from({ length: camp.type === "repetition_drill" ? 12 : 6 }, (_, k) => `${camp.id}-ex-${k}`),
+      }));
+      return { levels: 5, exercises: 33, generatedAt: iso(0) };
+    }
     const levelsCount = Math.max(5, Math.min(10, Math.round((g.capabilities.difficultyMax - g.capabilities.difficultyMin) * 1.5)));
     const typesCount = Math.max(1, g.capabilities.exerciseTypes.length);
     const positionsCount = Math.max(1, g.capabilities.positions.length);
@@ -431,7 +496,7 @@ export const mockEngine = {
     return GAMES.find((g) => g.id === id)?.name ?? id;
   },
 
-  getContentBank(): { phoneme: string; words: readonly string[]; position: string; difficulty: number }[] {
+  getContentBank(): { phoneme: string; words: readonly string[]; position: string; difficulty: number; type?: string }[] {
     return [...CONTENT_BANK].map((c) => ({ ...c }));
   },
   getPhonemeInfo(): { phoneme: string; name: string; occurrences: number }[] {
@@ -456,9 +521,10 @@ export const mockEngine = {
             word,
             difficulty: Math.round(diff * 100) / 100,
             position: c.position as Exercise["position"],
-            prompt: EXERCISE_TEMPLATES[type].prompt(word),
+            prompt: EXERCISE_TEMPLATES[type]?.prompt(word) ?? `Say “${word}”.`,
             media: { imageUrl: undefined, audioUrl: undefined },
-            levelId: game.id,
+            levelId: game.shortId === "jungle-quest" ? (JUNGLE_CAMPS.find((x) => x.type === type)?.id ?? game.id) : game.id,
+            phase: JUNGLE_CAMPS.find((x) => x.type === type)?.phase,
           });
         });
       });

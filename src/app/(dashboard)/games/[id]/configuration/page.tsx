@@ -6,7 +6,7 @@ import { mockEngine } from "@/services/mockEngine";
 import { Button, Card, PageHeader, StatusPill } from "@/components/ui";
 import type { ExerciseType, PhonemePosition } from "@/types/engine";
 
-const EXERCISE_TYPES: ExerciseType[] = ["picture_naming", "word_repetition", "minimal_pair", "sound_identification"];
+const EXERCISE_TYPES: ExerciseType[] = ["picture_naming", "word_repetition", "minimal_pair", "sound_identification", "isolation", "repetition_drill", "discrimination", "word_hunt", "storytelling"];
 const POSITIONS: PhonemePosition[] = ["initial", "medial", "final"];
 
 export default function GameConfigPage({ params }: { params: Promise<{ id: string }> }) {

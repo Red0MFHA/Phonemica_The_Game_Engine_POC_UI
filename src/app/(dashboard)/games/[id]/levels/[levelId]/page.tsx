@@ -12,6 +12,11 @@ const TYPE_LABEL: Record<string, string> = {
   word_repetition: "Word repetition",
   minimal_pair: "Minimal pair",
   sound_identification: "Sound ID",
+  isolation: "Isolation",
+  repetition_drill: "Repetition drill",
+  discrimination: "Discrimination",
+  word_hunt: "Word hunt",
+  storytelling: "Storytelling",
 };
 
 const PHONEMES = ["/r/", "/s/", "/th/", "/k/", "/g/", "/ʃ/", "/θ/", "/ð/", "/l/"];

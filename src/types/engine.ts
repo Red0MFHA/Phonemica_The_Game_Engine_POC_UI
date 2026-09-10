@@ -48,7 +48,16 @@ export type ExerciseType =
   | "picture_naming"
   | "word_repetition"
   | "minimal_pair"
-  | "sound_identification";
+  | "sound_identification"
+  | "isolation"
+  | "repetition_drill"
+  | "discrimination"
+  | "word_hunt"
+  | "storytelling";
+
+export type TherapyPhase = "isolation" | "repetition" | "discrimination" | "words" | "story";
+export type VisemeId = "rest" | "closed" | "teeth_lip" | "tongue_between" | "spread" | "rounded" | "SS" | "SH" | "RR" | "LL" | "KK";
+export type DrillTempo = "slow" | "fast" | "paused";
 
 export type PhonemePosition = "initial" | "medial" | "final";
 export type GameStatus = "active" | "testing" | "disabled";
@@ -91,6 +100,7 @@ export interface Level {
   title: string;
   difficulty: number;
   exerciseIds: string[];
+  phase?: TherapyPhase;
 }
 
 export interface Exercise {
@@ -103,9 +113,16 @@ export interface Exercise {
   prompt?: string;
   media?: { imageUrl?: string; audioUrl?: string };
   levelId?: string;
+  phase?: TherapyPhase;
+  viseme?: VisemeId;
+  tempo?: DrillTempo;
+  trialIndex?: number;
+  trialCount?: number;
+  foils?: string[];
+  choices?: { word: string; imageKey: string; correct: boolean }[];
 }
 
-export type ErrorType = "substitution" | "omission" | "distortion" | "none";
+export type ErrorType = "substitution" | "omission" | "distortion" | "addition" | "none";
 
 export interface Attempt {
   id: string;
@@ -162,6 +179,7 @@ export interface ChildAnalytics {
   positionBreakdown: { position: PhonemePosition; accuracy: number; attempts: number }[];
   sessionHistory: SessionRecord[];
   recommendation: Recommendation;
+  therapyLoop?: { phase: TherapyPhase; campId: string; campTitle: string };
 }
 
 export type ActivityType =

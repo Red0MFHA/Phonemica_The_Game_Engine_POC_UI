@@ -10,6 +10,11 @@ const TYPE_LABEL: Record<string, string> = {
   word_repetition: "Word repetition",
   minimal_pair: "Minimal pair",
   sound_identification: "Sound ID",
+  isolation: "Isolation",
+  repetition_drill: "Repetition drill",
+  discrimination: "Discrimination",
+  word_hunt: "Word hunt",
+  storytelling: "Storytelling",
 };
 
 export default function ExercisesPage() {
@@ -57,6 +62,7 @@ export default function ExercisesPage() {
                 <th className="pb-2 pr-4 font-medium">Phoneme</th>
                 <th className="pb-2 pr-4 font-medium">Word</th>
                 <th className="pb-2 pr-4 font-medium">Type</th>
+                <th className="pb-2 pr-4 font-medium">Phase</th>
                 <th className="pb-2 pr-4 font-medium">Position</th>
                 <th className="pb-2 font-medium">Difficulty</th>
               </tr>
@@ -67,12 +73,13 @@ export default function ExercisesPage() {
                   <td className="py-2.5 pr-4"><span className="rounded bg-brand-50 px-2 py-0.5 font-mono text-brand-700 dark:bg-brand-900/40 dark:text-brand-300">{e.targetPhoneme}</span></td>
                   <td className="py-2.5 pr-4 font-medium capitalize">{e.word}</td>
                   <td className="py-2.5 pr-4 capitalize">{TYPE_LABEL[e.type] ?? e.type}</td>
+                  <td className="py-2.5 pr-4 capitalize">{e.phase ?? "—"}</td>
                   <td className="py-2.5 pr-4 capitalize">{e.position}</td>
                   <td className="py-2.5">{e.difficulty.toFixed(1)}</td>
                 </tr>
               ))}
               {filtered.length === 0 && (
-                <tr><td colSpan={5} className="py-8 text-center text-slate-400">No exercises match your filters.</td></tr>
+                <tr><td colSpan={6} className="py-8 text-center text-slate-400">No exercises match your filters.</td></tr>
               )}
             </tbody>
           </table>

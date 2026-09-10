@@ -21,7 +21,7 @@ export default function AnalyticsPage({ params }: { params: Promise<{ id: string
   if (!child) return <div className="py-20 text-center text-slate-400 dark:text-slate-500">Child not found.</div>;
   const a = mockEngine.getAnalytics(child.id);
 
-  const errorColors = ["#ef4444", "#f59e0b", "#8b5cf6", "#22c55e"];
+  const errorColors = ["#ef4444", "#f59e0b", "#8b5cf6", "#06b6d4", "#22c55e"];
 
   return (
     <div>
@@ -30,6 +30,13 @@ export default function AnalyticsPage({ params }: { params: Promise<{ id: string
         title={`Analytics — ${child.name}`}
         subtitle={`Age ${child.age} · ${mockEngine.getUserName(child.therapistUserId)} · ${mockEngine.getUserName(child.parentUserId) !== "—" ? `parent ${mockEngine.getUserName(child.parentUserId)}` : "no parent linked"}`}
       />
+      {a.therapyLoop && (
+        <Card className="mb-6 border-amber-200 bg-amber-50/50 dark:border-amber-900 dark:bg-amber-950/20">
+          <p className="text-xs font-semibold uppercase tracking-wide text-amber-700 dark:text-amber-300">Jungle Quest loop</p>
+          <p className="mt-1 text-lg font-bold text-slate-900 dark:text-white">{a.therapyLoop.campTitle} · {a.therapyLoop.phase}</p>
+          <p className="text-sm text-slate-600 dark:text-slate-300">Same camp ids as the skin: {a.therapyLoop.campId}</p>
+        </Card>
+      )}
 
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
         <Card><p className="text-xs text-slate-500 dark:text-slate-400">Total attempts</p><p className="mt-1 text-2xl font-bold text-slate-900 dark:text-white">{a.totals.attempts}</p></Card>

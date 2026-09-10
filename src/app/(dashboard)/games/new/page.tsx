@@ -6,9 +6,9 @@ import { mockEngine } from "@/services/mockEngine";
 import { Button, Card, PageHeader } from "@/components/ui";
 import type { ExerciseType, PhonemePosition, RegisterGameInput } from "@/types/engine";
 
-const EXERCISE_TYPES: ExerciseType[] = ["picture_naming", "word_repetition", "minimal_pair", "sound_identification"];
+const EXERCISE_TYPES: ExerciseType[] = ["picture_naming", "word_repetition", "minimal_pair", "sound_identification", "isolation", "repetition_drill", "discrimination", "word_hunt", "storytelling"];
 const POSITIONS: PhonemePosition[] = ["initial", "medial", "final"];
-const MECHANICS = ["Movement", "Collection", "Multiple Choice", "Timed Challenge", "Drag and Drop", "Resource", "Energy"];
+const MECHANICS = ["Movement", "Collection", "Multiple Choice", "Timed Challenge", "Drag and Drop", "Resource", "Energy", "Mirror", "Mass practice", "Listen-and-act", "Hide-and-seek", "Story choice"];
 const MEDIA = ["image", "audio", "video"];
 
 const STEPS = ["Basic", "Capabilities", "Mechanics", "Content", "Review"];
