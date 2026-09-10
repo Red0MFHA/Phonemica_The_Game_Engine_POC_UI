@@ -38,7 +38,7 @@ const GAMES: Game[] = [
     developer: "Phonemica", version: "1.2.0", status: "active", ageRangeMin: 5, ageRangeMax: 8,
     capabilities: { exerciseTypes: ["isolation", "repetition_drill", "discrimination", "word_hunt", "storytelling"], positions: ["initial", "medial", "final"], difficultyMin: 1, difficultyMax: 10 },
     mechanics: ["Mirror", "Mass practice", "Listen-and-act", "Hide-and-seek", "Story choice"], theme: "Jungle Adventure / Sound Island", wordStyle: "Animal & Nature",
-    preferredContent: "animal words · isolation to story loop", mediaTypes: ["image", "audio"], levelCount: 5, exerciseCount: 33,
+    preferredContent: "animal words · isolation to story loop", mediaTypes: ["image", "audio"], levelCount: 5, exerciseCount: 37,
     generatedAt: iso(30), connectedChildren: 42, sessions: 612, apiKey: "pk_jungle_****3f2a",
   },
   {
@@ -200,7 +200,7 @@ const CONTENT_BANK = [
   { phoneme: "/r/", words: ["rabbit", "robot", "rainbow", "rocket", "ring", "river"], position: "initial", difficulty: 0.55, type: "word_hunt" as const },
   { phoneme: "/r/", words: ["carrot", "parrot", "berry"], position: "medial", difficulty: 0.62, type: "word_hunt" as const },
   { phoneme: "/r/", words: ["car", "star", "bear"], position: "final", difficulty: 0.7, type: "word_hunt" as const },
-  { phoneme: "/r/", words: ["rabbit", "river", "robot"], position: "initial", difficulty: 0.8, type: "storytelling" as const },
+  { phoneme: "/r/", words: ["rabbit", "river", "robot", "rocket", "ring", "rainbow", "raccoon", "treasure"], position: "initial", difficulty: 0.8, type: "storytelling" as const },
   { phoneme: "/s/", words: ["sun", "sand", "seven", "spoon", "star", "seat"], position: "initial", difficulty: 0.3, type: "word_hunt" as const },
   { phoneme: "/s/", words: ["bus", "house", "mouse", "dress"], position: "final", difficulty: 0.5, type: "word_hunt" as const },
   { phoneme: "/th/", words: ["three", "thumb", "thorn", "think", "thirsty"], position: "initial", difficulty: 0.4, type: "word_hunt" as const },
@@ -236,7 +236,7 @@ GAMES.forEach((game) => {
   const list: Level[] = [];
   if (game.shortId === "jungle-quest") {
     JUNGLE_CAMPS.forEach((camp, i) => {
-      const eCount = camp.type === "repetition_drill" ? 12 : camp.type === "discrimination" ? 10 : camp.type === "word_hunt" ? 6 : camp.type === "isolation" ? 3 : 2;
+      const eCount = camp.type === "repetition_drill" ? 12 : camp.type === "discrimination" ? 10 : camp.type === "word_hunt" ? 6 : camp.type === "isolation" ? 3 : 6;
       list.push({
         id: camp.id,
         gameId: game.id,
@@ -293,9 +293,10 @@ function buildExerciseForLevel(id: string, level: Level): Exercise {
     tempo: type === "repetition_drill" ? (["slow", "fast", "paused"] as const)[seed % 3] : undefined,
     foils: type === "discrimination" ? ["wah"] : undefined,
     choices: type === "storytelling" ? [
-      { word: "rabbit", imageKey: "rabbit", correct: true },
-      { word: "river", imageKey: "river", correct: false },
-      { word: "robot", imageKey: "robot", correct: false },
+      { word: word, imageKey: word, correct: true },
+      { word: bank.words[(seed + 1) % bank.words.length], imageKey: bank.words[(seed + 1) % bank.words.length], correct: false },
+      { word: bank.words[(seed + 2) % bank.words.length], imageKey: bank.words[(seed + 2) % bank.words.length], correct: false },
+      { word: bank.words[(seed + 3) % bank.words.length], imageKey: bank.words[(seed + 3) % bank.words.length], correct: false },
     ] : undefined,
   };
 }
