@@ -2,8 +2,11 @@
 
 import { useState, use } from "react";
 import { ArrowLeft, Loader2, RefreshCw } from "lucide-react";
+import Breadcrumbs from "@/components/breadcrumbs";
 import { mockEngine } from "@/services/mockEngine";
 import { Button, Card, PageHeader, StatusPill } from "@/components/ui";
+import { getAuth } from "@/lib/auth";
+import { can } from "@/lib/permissions";
 import type { ExerciseType, PhonemePosition } from "@/types/engine";
 
 const EXERCISE_TYPES: ExerciseType[] = ["picture_naming", "word_repetition", "minimal_pair", "sound_identification", "isolation", "repetition_drill", "discrimination", "word_hunt", "storytelling"];
@@ -11,10 +14,22 @@ const POSITIONS: PhonemePosition[] = ["initial", "medial", "final"];
 
 export default function GameConfigPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
+  const session = getAuth();
   const [, setTick] = useState(0);
   const [generating, setGenerating] = useState(false);
   const game = mockEngine.getGame(id);
   const refresh = () => setTick((t) => t + 1);
+
+  if (!can(session?.role, "games.configure")) {
+    return (
+      <div className="py-20 text-center">
+        <p className="text-slate-400 dark:text-slate-500">Configuration is Admin-only.</p>
+        <Button variant="ghost" href={`/games/${id}`} className="mt-4">
+          <ArrowLeft size={16} /> Back
+        </Button>
+      </div>
+    );
+  }
 
   if (!game) return <div className="py-20 text-center text-slate-400 dark:text-slate-500">Game not found.</div>;
   const currentGame = game;
@@ -42,6 +57,13 @@ export default function GameConfigPage({ params }: { params: Promise<{ id: strin
 
   return (
     <div>
+      <Breadcrumbs
+        items={[
+          { label: "Games", href: "/games" },
+          { label: game.name, href: `/games/${game.id}` },
+          { label: "Configuration" },
+        ]}
+      />
       <Button variant="ghost" href={`/games/${game.id}`}><ArrowLeft size={16} /> Back to {game.name}</Button>
       <PageHeader
         title={`Configuration — ${game.name}`}

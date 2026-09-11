@@ -11,7 +11,10 @@ export default function ContentPage() {
 
   return (
     <div>
-      <PageHeader title="Content" subtitle="Phonemes, word bank and difficulty metadata." />
+      <PageHeader title="Content" subtitle="Phonemes, word bank and difficulty metadata. Inventory uses one IPA alphabet." />
+      <p className="mb-4 text-xs text-slate-400 dark:text-slate-500">
+        Clinician view — children never see this bank. Seeded demo content.
+      </p>
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
         <Card title="Phoneme coverage" className="lg:col-span-1">

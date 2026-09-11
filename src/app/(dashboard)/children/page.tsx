@@ -4,12 +4,15 @@ import { useState } from "react";
 import { Plus, Search, Baby } from "lucide-react";
 import { mockEngine } from "@/services/mockEngine";
 import { Button, PageHeader, StatusPill } from "@/components/ui";
+import { getAuth } from "@/lib/auth";
+import { can } from "@/lib/permissions";
 import Link from "next/link";
 
 export default function ChildrenPage() {
+  const session = getAuth();
   const [q, setQ] = useState("");
   const [status, setStatus] = useState("all");
-  const children = mockEngine.getChildren();
+  const children = mockEngine.getChildrenForUser(session);
 
   const filtered = children.filter((c) => {
     const matchQ = c.name.toLowerCase().includes(q.toLowerCase());
@@ -17,12 +20,25 @@ export default function ChildrenPage() {
     return matchQ && matchStatus;
   });
 
+  const subtitle =
+    session?.role === "parent"
+      ? "Your children’s profiles."
+      : session?.role === "therapist"
+        ? "Your caseload — therapy profiles only."
+        : "Therapeutic profiles owned by the Engine.";
+
   return (
     <div>
       <PageHeader
         title="Children"
-        subtitle="Therapeutic profiles owned by the Engine."
-        actions={<Button href="/children/new"><Plus size={16} /> Add Child</Button>}
+        subtitle={subtitle}
+        actions={
+          can(session?.role, "children.create") ? (
+            <Button href="/children/new">
+              <Plus size={16} /> Add Child
+            </Button>
+          ) : undefined
+        }
       />
 
       <div className="mb-4 flex items-center gap-3">
@@ -55,19 +71,27 @@ export default function ChildrenPage() {
               <tr key={c.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/60">
                 <td className="px-5 py-3">
                   <Link href={`/children/${c.id}`} className="flex items-center gap-3 font-medium text-brand-700 hover:underline dark:text-brand-300">
-                    <div className="flex h-8 w-8 items-center justify-center rounded-full bg-brand-100 text-brand-700 dark:bg-brand-900/40 dark:text-brand-300"><Baby size={15} /></div>
+                    <div className="flex h-8 w-8 items-center justify-center rounded-full bg-brand-100 text-brand-700 dark:bg-brand-900/40 dark:text-brand-300">
+                      <Baby size={15} />
+                    </div>
                     {c.name}
                   </Link>
                 </td>
                 <td className="px-5 py-3 text-slate-600 dark:text-slate-300">{c.age}</td>
-                <td className="px-5 py-3"><StatusPill value={c.assessmentStatus} /></td>
+                <td className="px-5 py-3">
+                  <StatusPill value={c.assessmentStatus} />
+                </td>
                 <td className="px-5 py-3 text-slate-600 dark:text-slate-300">{c.targets.map((t) => t.phoneme).join(", ") || "—"}</td>
                 <td className="px-5 py-3 text-slate-600 dark:text-slate-300">{c.assignments.filter((a) => a.active).length}</td>
                 <td className="px-5 py-3 text-slate-600 dark:text-slate-300">{mockEngine.getUserName(c.therapistUserId)}</td>
               </tr>
             ))}
             {filtered.length === 0 && (
-              <tr><td colSpan={6} className="px-5 py-10 text-center text-slate-400 dark:text-slate-500">No children match your filters.</td></tr>
+              <tr>
+                <td colSpan={6} className="px-5 py-10 text-center text-slate-400 dark:text-slate-500">
+                  No children in your scope.
+                </td>
+              </tr>
             )}
           </tbody>
         </table>

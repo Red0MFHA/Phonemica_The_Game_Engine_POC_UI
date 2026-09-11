@@ -1,9 +1,11 @@
 import type {
   Activity,
   AssignmentSource,
+  Attempt,
   Child,
   ChildAnalytics,
   DashboardSummary,
+  ErrorType,
   Exercise,
   ExerciseType,
   Game,
@@ -14,6 +16,9 @@ import type {
   TherapyPhase,
   User,
 } from "@/types/engine";
+import type { AuthSession } from "@/lib/auth";
+import { loadEngineSettings } from "@/lib/engineSettings";
+import { readSharedStore } from "@/lib/sharedStore";
 
 function iso(offsetDays = 0, hours = 10): string {
   const d = new Date();
@@ -39,16 +44,16 @@ const GAMES: Game[] = [
     capabilities: { exerciseTypes: ["isolation", "repetition_drill", "discrimination", "word_hunt", "storytelling"], positions: ["initial", "medial", "final"], difficultyMin: 1, difficultyMax: 10 },
     mechanics: ["Mirror", "Mass practice", "Listen-and-act", "Hide-and-seek", "Story choice"], theme: "Jungle Adventure / Sound Island", wordStyle: "Animal & Nature",
     preferredContent: "animal words · isolation to story loop", mediaTypes: ["image", "audio"], levelCount: 5, exerciseCount: 37,
-    generatedAt: iso(30), connectedChildren: 42, sessions: 612, apiKey: "pk_jungle_****3f2a",
+    generatedAt: iso(30), connectedChildren: 6, sessions: 612, apiKey: "pk_jungle_****3f2a",
   },
   {
     id: "g2", name: "Cosmic Rescue", shortId: "cosmic-rescue",
-    description: "Space exploration where correct pronunciation powers your ship across the galaxy.",
-    developer: "Phonemica", version: "1.0.0", status: "active", ageRangeMin: 5, ageRangeMax: 9,
-    capabilities: { exerciseTypes: ["picture_naming", "word_repetition", "sound_identification"], positions: ["initial", "final"], difficultyMin: 1, difficultyMax: 7 },
-    mechanics: ["Resource", "Energy"], theme: "Space Exploration", wordStyle: "Objects",
-    preferredContent: "space & object words", mediaTypes: ["image", "audio"], levelCount: 7, exerciseCount: 31,
-    generatedAt: iso(21), connectedChildren: 31, sessions: 489, apiKey: "pk_cosmic_****8b1c",
+    description: "Space therapy loop: Signal Bay isolation, Asteroid Hop mass practice, Radar Ping discrimination, Debris Field words, Captain's Log storytelling.",
+    developer: "Phonemica", version: "1.2.0", status: "active", ageRangeMin: 5, ageRangeMax: 9,
+    capabilities: { exerciseTypes: ["isolation", "repetition_drill", "discrimination", "word_hunt", "storytelling"], positions: ["initial", "medial", "final"], difficultyMin: 1, difficultyMax: 7 },
+    mechanics: ["Beacon", "Asteroid hop", "Radar tap", "Shield clear", "Captain's log"], theme: "Space Exploration", wordStyle: "Objects & Space",
+    preferredContent: "space words · isolation to story loop", mediaTypes: ["image", "audio"], levelCount: 5, exerciseCount: 29,
+    generatedAt: iso(21), connectedChildren: 3, sessions: 489, apiKey: "pk_cosmic_****8b1c",
   },
   {
     id: "g3", name: "Tracker Park", shortId: "tracker-park",
@@ -56,7 +61,7 @@ const GAMES: Game[] = [
     developer: "Phonemica Lab", version: "0.8.0", status: "testing", ageRangeMin: 4, ageRangeMax: 10,
     capabilities: { exerciseTypes: ["picture_naming", "sound_identification"], positions: ["initial"], difficultyMin: 1, difficultyMax: 5 },
     mechanics: ["Multiple Choice"], theme: "Park", wordStyle: "Everyday", preferredContent: "early words",
-    mediaTypes: ["image"], levelCount: 4, exerciseCount: 18, connectedChildren: 12, sessions: 103,
+    mediaTypes: ["image"], levelCount: 4, exerciseCount: 18, connectedChildren: 0, sessions: 103,
     apiKey: "pk_tracker_****d09e",
   },
 ];
@@ -97,86 +102,212 @@ function rng(seed: number): () => number {
   };
 }
 
+const WORDS_BY_PH: Record<string, string[]> = {
+  "/r/": ["rabbit", "robot", "rocket", "river"],
+  "/s/": ["sun", "star", "sand", "spoon"],
+  "/th/": ["three", "thumb", "think"],
+  "/k/": ["cat", "cake", "kite"],
+  "/ʃ/": ["ship", "shoe", "shark"],
+  "/θ/": ["thumb", "theater"],
+  "/ð/": ["this", "that"],
+  "/l/": ["lion", "leaf", "lamp"],
+  "/g/": ["goat", "gate"],
+};
+
+/** Seeded attempt history — display KPIs derive from these rows, not live RNG. */
+const attempts: Attempt[] = [];
+
+function seedAttempts() {
+  if (attempts.length) return;
+  children.forEach((child, ci) => {
+    const phonemes = child.targets.length ? child.targets.map((t) => t.phoneme) : ["/r/", "/s/"];
+    const rand = rng(ci * 41 + 11);
+    const gameIds = child.assignments.filter((a) => a.active).map((a) => a.gameId);
+    const games = gameIds.length ? gameIds : ["g1"];
+    for (let i = 0; i < 28 + Math.floor(rand() * 20); i++) {
+      const phoneme = phonemes[i % phonemes.length];
+      const pool = WORDS_BY_PH[phoneme] ?? ["sound"];
+      const word = pool[i % pool.length];
+      // Bias /r/ weaker for demo narrative
+      let accuracy = 0.45 + rand() * 0.5;
+      if (phoneme === "/r/") accuracy -= 0.15;
+      if (phoneme === "/s/") accuracy += 0.1;
+      accuracy = Math.max(0.18, Math.min(0.97, accuracy));
+      const correct = accuracy >= 0.62;
+      const errors: ErrorType[] = ["substitution", "omission", "distortion", "addition", "none"];
+      attempts.push({
+        id: `att-${child.id}-${i}`,
+        childId: child.id,
+        gameId: games[i % games.length],
+        exerciseId: `ex-${child.id}-${i}`,
+        phoneme,
+        word,
+        difficulty: Math.round((0.2 + (i % 7) * 0.1) * 100) / 100,
+        position: (["initial", "medial", "final"] as const)[i % 3],
+        accuracy: Math.round(accuracy * 100) / 100,
+        correct,
+        errorType: correct ? "none" : errors[i % 4],
+        confidence: 0.55 + accuracy * 0.4,
+        date: iso(i % 14, 8 + Math.floor(rand() * 10)),
+      });
+    }
+  });
+}
+
+seedAttempts();
+
+function sharedAttemptsForChild(child: Child): Attempt[] {
+  const shared = readSharedStore().attempts.filter(
+    (a) => a.childId === child.id || (!!a.childName && a.childName === child.name),
+  );
+  return shared.map((a, i) => ({
+    id: a.id || `shared-${child.id}-${i}`,
+    childId: child.id,
+    gameId: a.gameId || "skin",
+    exerciseId: `shared-ex-${i}`,
+    phoneme: a.phoneme,
+    word: a.word,
+    difficulty: 0.4,
+    position: "initial" as const,
+    accuracy: a.accuracy,
+    correct: a.correct,
+    errorType: (a.errorType as ErrorType) || (a.correct ? "none" : "substitution"),
+    confidence: a.accuracy,
+    date: a.date,
+  }));
+}
+
 function buildAnalytics(childId: string): ChildAnalytics {
-  const child = children.find((c) => c.id === childId)!;
-  const phonemes = child.targets.length ? child.targets.map((t) => t.phoneme) : ["/r/", "/s/", "/th/", "/k/"];
-  const rand = rng(childId.length * 7 + 3);
+  const child = children.find((c) => c.id === childId);
+  if (!child) {
+    return {
+      childId,
+      totals: { attempts: 0, correct: 0, sessions: 0, exercises: 0 },
+      perPhoneme: [],
+      errorDistribution: [],
+      positionBreakdown: [],
+      sessionHistory: [],
+      recommendation: {
+        phoneme: "/r/",
+        recommendedDifficulty: 0.3,
+        recommendedExercise: "isolation",
+        reason: "Child not found in Engine roster.",
+        source: "adaptive-engine",
+      },
+    };
+  }
+  const seeded = attempts.filter((a) => a.childId === childId);
+  const live = sharedAttemptsForChild(child);
+  const seen = new Set(seeded.map((a) => a.id));
+  const rows = [...seeded, ...live.filter((a) => !seen.has(a.id))];
+  const phonemeSet = new Set<string>([
+    ...child.targets.map((t) => t.phoneme),
+    ...rows.map((r) => r.phoneme),
+  ]);
+  if (!phonemeSet.size) ["/r/", "/s/"].forEach((p) => phonemeSet.add(p));
 
-  const perPhoneme: PhonemeStats[] = phonemes.map((p) => {
-    const base = 0.35 + rand() * 0.6;
-    const attempts = 8 + Math.floor(rand() * 40);
-    const correct = Math.round(attempts * base);
-    const accuracy = Math.round((correct / attempts) * 100);
-    const trendVal = rand();
-    const trend = trendVal > 0.66 ? "improving" : trendVal > 0.33 ? "stable" : "declining";
+  const perPhoneme: PhonemeStats[] = Array.from(phonemeSet).map((p) => {
+    const subset = rows.filter((r) => r.phoneme === p);
+    const n = subset.length || 1;
+    const correct = subset.filter((r) => r.correct).length;
+    const accuracy = Math.round((correct / n) * 100);
+    const mid = Math.floor(subset.length / 2) || 1;
+    const first = subset.slice(0, mid);
+    const second = subset.slice(mid);
+    const a1 = first.length ? first.filter((r) => r.correct).length / first.length : 0.5;
+    const a2 = second.length ? second.filter((r) => r.correct).length / second.length : a1;
+    const trend = a2 - a1 > 0.08 ? "improving" : a1 - a2 > 0.08 ? "declining" : "stable";
     const mastery = accuracy >= 85 ? "mastered" : accuracy >= 60 ? "developing" : "needs_practice";
-    return { phoneme: p, accuracy, attempts, correct, errorRate: 100 - accuracy, trend, mastery };
+    return { phoneme: p, accuracy, attempts: subset.length, correct, errorRate: 100 - accuracy, trend, mastery };
   });
 
-  const errorTypes = ["substitution", "omission", "distortion", "addition", "none"] as const;
-  const errorDistribution = errorTypes.map((et) => {
-    let count: number;
-    if (et === "substitution") count = Math.floor(rand() * 60) + 20;
-    else if (et === "omission") count = Math.floor(rand() * 25);
-    else if (et === "distortion") count = Math.floor(rand() * 20);
-    else if (et === "addition") count = Math.floor(rand() * 12);
-    else count = Math.floor(rand() * 15);
-    return { errorType: et as typeof et, count };
-  });
-
-  const positionBreakdown = (["initial", "medial", "final"] as const).map((pos) => ({
-    position: pos,
-    accuracy: Math.round(30 + rand() * 65),
-    attempts: 10 + Math.floor(rand() * 30),
+  const errorTypes: ErrorType[] = ["substitution", "omission", "distortion", "addition", "none"];
+  const errorDistribution = errorTypes.map((et) => ({
+    errorType: et,
+    count: rows.filter((r) => r.errorType === et).length,
   }));
 
-  const sessions: SessionRecord[] = [];
-  for (let i = 0; i < 12; i++) {
-    sessions.push({
-      id: `s${i}`,
-      childId,
-      gameId: i % 2 === 0 ? "g1" : "g2",
-      date: iso(i, 9 + Math.floor(rand() * 8)),
-      accuracy: Math.round(45 + rand() * 55),
-      exercises: 8 + Math.floor(rand() * 8),
-      isDiagnostic: i === sessions.length - 1,
-    });
-  }
+  const positionBreakdown = (["initial", "medial", "final"] as const).map((pos) => {
+    const subset = rows.filter((r) => r.position === pos);
+    const n = subset.length || 1;
+    return {
+      position: pos,
+      accuracy: Math.round((subset.filter((r) => r.correct).length / n) * 100),
+      attempts: subset.length,
+    };
+  });
 
-  const weakest = [...perPhoneme].sort((a, b) => a.accuracy - b.accuracy)[0];
+  // Group attempts into pseudo-sessions by day+game
+  const sessionMap = new Map<string, Attempt[]>();
+  rows.forEach((a) => {
+    const day = a.date.slice(0, 10);
+    const key = `${day}:${a.gameId}`;
+    const list = sessionMap.get(key) ?? [];
+    list.push(a);
+    sessionMap.set(key, list);
+  });
+  const sessions: SessionRecord[] = Array.from(sessionMap.entries())
+    .slice(0, 12)
+    .map(([key, list], i) => {
+      const [date, gameId] = key.split(":");
+      const acc = list.reduce((s, a) => s + a.accuracy, 0) / (list.length || 1);
+      return {
+        id: `s-${childId}-${i}`,
+        childId,
+        gameId,
+        date: list[0]?.date ?? date,
+        accuracy: Math.round(acc * 100),
+        exercises: list.length,
+        isDiagnostic: i === 0 && child.assessmentStatus !== "pending",
+      };
+    });
+
+  const weakest = [...perPhoneme].sort((a, b) => a.accuracy - b.accuracy)[0] ?? {
+    phoneme: "/r/",
+    accuracy: 50,
+  };
   const stepBack = weakest.accuracy < 55;
   const recommendation = {
     phoneme: weakest.phoneme,
     recommendedDifficulty: Math.round(weakest.accuracy / 25) / 10 + 0.1,
     recommendedExercise: (stepBack ? "isolation" : weakest.accuracy < 70 ? "word_hunt" : "storytelling") as ExerciseType,
     reason: stepBack
-      ? `${weakest.phoneme} shows persistent substitution (e.g. /r/ → /w/). Step back to isolation — Echo Cave — before word_hunt.`
-      : `${weakest.phoneme} is developing. Continue Hidden Grove word_hunt, then Story Fire.`,
+      ? `${weakest.phoneme} is weakest in attempt history. Step back to isolation before words.`
+      : `${weakest.phoneme} is developing from ${rows.length} recorded attempts. Continue word practice, then storytelling.`,
     source: "adaptive-engine" as const,
   };
 
   const totals = {
-    attempts: perPhoneme.reduce((a, p) => a + p.attempts, 0),
-    correct: perPhoneme.reduce((a, p) => a + p.correct, 0),
+    attempts: rows.length,
+    correct: rows.filter((r) => r.correct).length,
     sessions: sessions.length,
-    exercises: sessions.length * 10,
+    exercises: rows.length,
   };
 
   const therapyLoop = child.assignments.some((a) => a.gameId === "g1")
-    ? { phase: (stepBack ? "isolation" : "words") as TherapyPhase, campId: stepBack ? "echo-cave" : "hidden-grove", campTitle: stepBack ? "Echo Cave" : "Hidden Grove" }
+    ? {
+        phase: (stepBack ? "isolation" : "words") as TherapyPhase,
+        campId: stepBack ? "echo-cave" : "hidden-grove",
+        campTitle: stepBack ? "Echo Cave" : "Hidden Grove",
+      }
     : undefined;
 
   return { childId, totals, perPhoneme, errorDistribution, positionBreakdown, sessionHistory: sessions, recommendation, therapyLoop };
 }
 
+function invalidateAnalytics(childId?: string) {
+  if (childId) analyticsCache.delete(childId);
+  else analyticsCache.clear();
+}
+
 const activity: Activity[] = [
-  { id: "a1", type: "session", text: "Mina completed Level 4 in Jungle Quest", timestamp: iso(0, 11) },
+  { id: "a1", type: "session", text: "Mina completed Hidden Grove in Jungle Quest", timestamp: iso(0, 11) },
   { id: "a2", type: "diagnostic", text: "Ava finished diagnostic screen — targets diagnosed", timestamp: iso(0, 9) },
   { id: "a3", type: "game_registered", text: "Game 'Tracker Park' registered (testing)", timestamp: iso(2) },
   { id: "a4", type: "child_registered", text: "New child Finn O'Brien onboarded", timestamp: iso(3) },
-  { id: "a5", type: "assignment", text: "Engine auto-assigned Cosmic Rescue to Noah", timestamp: iso(1) },
+  { id: "a5", type: "assignment", text: "Engine auto-assigned Cosmic Rescue (Asteroid Field) to Noah", timestamp: iso(1) },
   { id: "a6", type: "user_added", text: "Therapist Tariq Nasir invited", timestamp: iso(5) },
-  { id: "a7", type: "session", text: "Leo completed Level 2 in Jungle Quest", timestamp: iso(1, 15) },
+  { id: "a7", type: "session", text: "Leo cleared Orbit Dock in Cosmic Rescue", timestamp: iso(1, 15) },
 ];
 
 const levels: Record<string, Level[]> = {};
@@ -232,6 +363,14 @@ const JUNGLE_CAMPS: { id: string; title: string; phase: TherapyPhase; type: Exer
   { id: "story-fire", title: "Story Fire", phase: "story", type: "storytelling" },
 ];
 
+const COSMIC_SECTORS = [
+  { id: "signal-bay", title: "Signal Bay", zone: "📡 Signal Bay" },
+  { id: "asteroid-hop", title: "Asteroid Hop", zone: "🪨 Asteroid Hop" },
+  { id: "radar-ping", title: "Radar Ping", zone: "🛰️ Radar Ping" },
+  { id: "debris-field", title: "Debris Field", zone: "🛡️ Debris Field" },
+  { id: "captains-log", title: "Captain's Log", zone: "📒 Captain's Log" },
+];
+
 GAMES.forEach((game) => {
   const list: Level[] = [];
   if (game.shortId === "jungle-quest") {
@@ -245,6 +384,20 @@ GAMES.forEach((game) => {
         difficulty: Math.round((0.15 + i * 0.15) * 100) / 100,
         phase: camp.phase,
         exerciseIds: Array.from({ length: eCount }, (_, k) => `${camp.id}-ex-${k}`),
+      });
+    });
+  } else if (game.shortId === "cosmic-rescue") {
+    COSMIC_SECTORS.forEach((sector, i) => {
+      const phaseMap: TherapyPhase[] = ["isolation", "repetition", "discrimination", "words", "story"];
+      const eCount = [3, 6, 8, 6, 6][i] ?? 5;
+      list.push({
+        id: sector.id,
+        gameId: game.id,
+        index: i + 1,
+        title: sector.title,
+        difficulty: Math.round((0.15 + i * 0.15) * 100) / 100,
+        phase: phaseMap[i],
+        exerciseIds: Array.from({ length: eCount }, (_, k) => `${sector.id}-ex-${k}`),
       });
     });
   } else {
@@ -265,7 +418,7 @@ GAMES.forEach((game) => {
   levels[game.id] = list;
 });
 
-const attemptsCache = new Map<string, ChildAnalytics>();
+const analyticsCache = new Map<string, ChildAnalytics>();
 
 const exerciseStore: Record<string, Exercise> = {};
 
@@ -274,10 +427,39 @@ const TYPE_POOL: ExerciseType[] = ["picture_naming", "word_repetition", "minimal
 function buildExerciseForLevel(id: string, level: Level): Exercise {
   const seed = id.split("").reduce((a, c) => a + c.charCodeAt(0), 0);
   const camp = JUNGLE_CAMPS.find((c) => c.id === level.id);
-  const type = camp?.type ?? TYPE_POOL[seed % 4];
-  const bank = CONTENT_BANK.find((c) => c.type === type && c.phoneme === "/r/") ?? CONTENT_BANK[seed % CONTENT_BANK.length];
+  const cosmic = COSMIC_SECTORS.find((s) => s.id === level.id);
+  const cosmicPhaseTypes: Record<string, ExerciseType> = {
+    "signal-bay": "isolation",
+    "asteroid-hop": "repetition_drill",
+    "radar-ping": "discrimination",
+    "debris-field": "word_hunt",
+    "captains-log": "storytelling",
+  };
+  const type = camp?.type ?? (cosmic ? cosmicPhaseTypes[cosmic.id] ?? "word_hunt" : TYPE_POOL[seed % 4]);
+  const bank =
+    CONTENT_BANK.find((c) => c.type === type && c.phoneme === "/r/") ??
+    CONTENT_BANK.find((c) => c.phoneme === "/r/") ??
+    CONTENT_BANK[seed % CONTENT_BANK.length];
   const word = bank.words[Math.floor(seed / 3) % bank.words.length];
-  const diff = Math.round(bank.difficulty * 10) / 10;
+  const cosmicIdx = COSMIC_SECTORS.findIndex((s) => s.id === level.id);
+  const diff = Math.round((cosmic ? 0.15 + Math.max(0, cosmicIdx) * 0.15 : bank.difficulty) * 100) / 100;
+  const cosmicPrompt =
+    type === "isolation"
+      ? `Copy the beacon.`
+      : type === "repetition_drill"
+        ? `Hop the asteroids — same sound.`
+        : type === "discrimination"
+          ? `Tap radar only on the target sound.`
+          : type === "word_hunt"
+            ? `Clear debris — say “${word}”.`
+            : `Captain’s log — say “${word}”.`;
+  const phaseMap: Record<string, TherapyPhase | undefined> = {
+    "signal-bay": "isolation",
+    "asteroid-hop": "repetition",
+    "radar-ping": "discrimination",
+    "debris-field": "words",
+    "captains-log": "story",
+  };
   return {
     id,
     type,
@@ -285,10 +467,10 @@ function buildExerciseForLevel(id: string, level: Level): Exercise {
     word,
     difficulty: diff,
     position: bank.position as Exercise["position"],
-    prompt: EXERCISE_TEMPLATES[type]?.prompt(word) ?? `Say “${word}”.`,
+    prompt: cosmic ? cosmicPrompt : (EXERCISE_TEMPLATES[type]?.prompt(word) ?? `Say “${word}”.`),
     media: {},
     levelId: level.id,
-    phase: camp?.phase ?? level.phase,
+    phase: camp?.phase ?? (cosmic ? phaseMap[cosmic.id] : level.phase),
     viseme: type === "isolation" ? "RR" : undefined,
     tempo: type === "repetition_drill" ? (["slow", "fast", "paused"] as const)[seed % 3] : undefined,
     foils: type === "discrimination" ? ["wah"] : undefined,
@@ -302,36 +484,130 @@ function buildExerciseForLevel(id: string, level: Level): Exercise {
 }
 
 export const mockEngine = {
-  getDashboard(): DashboardSummary {
+  getChildrenForUser(session: AuthSession | null | undefined): Child[] {
+    if (!session) return [];
+    if (session.role === "admin") return [...children];
+    if (session.role === "therapist") {
+      return children.filter((c) => c.therapistUserId === session.userId);
+    }
+    return children.filter((c) => c.parentUserId === session.userId);
+  },
+
+  canViewChild(session: AuthSession | null | undefined, childId: string): boolean {
+    return this.getChildrenForUser(session).some((c) => c.id === childId);
+  },
+
+  getDashboard(session?: AuthSession | null): DashboardSummary {
+    const scoped = session ? this.getChildrenForUser(session) : children;
+    const scopedIds = new Set(scoped.map((c) => c.id));
+    const scopedAttempts = attempts.filter((a) => scopedIds.has(a.childId));
+    const phonemeMap = new Map<string, { sum: number; n: number }>();
+    scopedAttempts.forEach((a) => {
+      const rec = phonemeMap.get(a.phoneme) ?? { sum: 0, n: 0 };
+      rec.sum += a.accuracy;
+      rec.n += 1;
+      phonemeMap.set(a.phoneme, rec);
+    });
+    const phonemePerformance = Array.from(phonemeMap.entries())
+      .map(([phoneme, { sum, n }]) => ({ phoneme, accuracy: Math.round((sum / n) * 100) }))
+      .sort((a, b) => a.accuracy - b.accuracy)
+      .slice(0, 6);
+
+    const sessionDays = new Set(scopedAttempts.map((a) => a.date.slice(0, 10)));
     return {
       totals: {
-        children: children.length,
+        children: scoped.length,
         games: GAMES.filter((g) => g.status === "active").length,
         users: users.filter((u) => u.status === "active").length,
-        sessions: GAMES.reduce((a, g) => a + g.sessions, 0),
-        exercises: GAMES.reduce((a, g) => a + g.exerciseCount, 0),
+        sessions: sessionDays.size,
+        exercises: scopedAttempts.length,
       },
       engineHealth: [
-        { name: "Speech AI", status: "operational", detail: "Wav2Vec2 2.0 · online" },
-        { name: "Adaptive Engine", status: "operational", detail: "last decision 4s ago" },
-        { name: "Exercise Engine", status: "operational", detail: "pool generated" },
-        { name: "Analytics Engine", status: "degraded", detail: "~2m backlog" },
-        { name: "API", status: "operational", detail: "99.9% uptime" },
+        { name: "Speech AI", status: "operational", detail: "mock scorer · POC" },
+        { name: "Adaptive Engine", status: "operational", detail: `last attempt ${scopedAttempts[0]?.date.slice(0, 10) ?? "—"}` },
+        { name: "Exercise Engine", status: "operational", detail: `${CONTENT_BANK.length} content rows` },
+        { name: "Analytics Engine", status: "operational", detail: `${attempts.length} attempts in store` },
+        { name: "API", status: "operational", detail: "in-memory mock" },
       ],
       recentActivity: [...activity],
-      phonemePerformance: [
-        { phoneme: "/r/", accuracy: 46 },
-        { phoneme: "/s/", accuracy: 82 },
-        { phoneme: "/th/", accuracy: 61 },
-        { phoneme: "/k/", accuracy: 74 },
-        { phoneme: "/ʃ/", accuracy: 58 },
-      ],
-      childrenByGame: [
-        { game: "Jungle Quest", value: 42 },
-        { game: "Cosmic Rescue", value: 31 },
-        { game: "Tracker Park", value: 12 },
-      ],
+      phonemePerformance: phonemePerformance.length
+        ? phonemePerformance
+        : [{ phoneme: "/r/", accuracy: 0 }],
+      childrenByGame: GAMES.map((g) => ({
+        game: g.name,
+        value: scoped.filter((c) => c.assignments.some((a) => a.gameId === g.id && a.active)).length,
+      })),
     };
+  },
+
+  getPlatformAnalytics(session?: AuthSession | null) {
+    const scoped = session ? this.getChildrenForUser(session) : children;
+    const ids = new Set(scoped.map((c) => c.id));
+    const shared = readSharedStore().attempts.filter((a) => {
+      // Match by Engine child id OR by name when skin ids differ
+      if (ids.has(a.childId)) return true;
+      return scoped.some((c) => c.name === a.childName);
+    });
+    const rows = [
+      ...attempts.filter((a) => ids.has(a.childId)),
+      ...shared.map((a) => ({
+        childId: a.childId,
+        correct: a.correct,
+        accuracy: a.accuracy,
+        date: a.date,
+      })),
+    ];
+    const correct = rows.filter((r) => r.correct).length;
+    const correctness = rows.length ? Math.round((correct / rows.length) * 100) : 0;
+    const activeChildren = scoped.filter((c) =>
+      rows.some((r) => r.childId === c.id || shared.some((s) => s.childName === c.name)),
+    ).length;
+    const sessionKeys = new Set(rows.map((a) => `${a.childId}:${a.date.slice(0, 10)}`));
+    const avgSessionAttempts = sessionKeys.size ? Math.round(rows.length / sessionKeys.size) : 0;
+
+    const days = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+    const weekly = Array.from({ length: 7 }, (_, i) => {
+      const d = new Date();
+      d.setDate(d.getDate() - (6 - i));
+      const key = d.toISOString().slice(0, 10);
+      const dayRows = rows.filter((r) => r.date.slice(0, 10) === key);
+      const acc = dayRows.length
+        ? Math.round((dayRows.filter((r) => r.correct).length / dayRows.length) * 100)
+        : 0;
+      return { day: days[d.getDay()], sessions: new Set(dayRows.map((r) => r.childId)).size, accuracy: acc };
+    });
+
+    return {
+      activeChildren,
+      correctness,
+      avgSessionAttempts,
+      wordsPractised: rows.length,
+      weekly,
+      children: scoped,
+      seeded: true as const,
+      liveSharedAttempts: shared.length,
+    };
+  },
+
+  recordAttempt(partial: Omit<Attempt, "id" | "date"> & { date?: string }): Attempt {
+    const row: Attempt = {
+      ...partial,
+      id: `att-live-${attempts.length + 1}`,
+      date: partial.date ?? iso(0),
+    };
+    attempts.unshift(row);
+    invalidateAnalytics(row.childId);
+    activity.unshift({
+      id: `a${activity.length + 1}`,
+      type: "session",
+      text: `Attempt on ${row.phoneme} (${row.word}) · ${row.correct ? "hit" : "miss"}`,
+      timestamp: iso(0),
+    });
+    return row;
+  },
+
+  getAttempts(childId?: string): Attempt[] {
+    return childId ? attempts.filter((a) => a.childId === childId) : [...attempts];
   },
 
   getUsers(): User[] {
@@ -361,23 +637,81 @@ export const mockEngine = {
   createChild(input: Omit<Child, "id" | "createdAt">): Child {
     const c: Child = { ...input, id: `c${children.length + 1}`, createdAt: iso(0) };
     children.push(c);
-    if (c.assessmentStatus === "pending") {
+    // Link reverse indexes for caseload lists
+    if (c.therapistUserId) {
+      const t = users.find((u) => u.id === c.therapistUserId);
+      if (t) {
+        t.therapistChildrenIds = Array.from(new Set([...(t.therapistChildrenIds ?? []), c.id]));
+      }
+    }
+    if (c.parentUserId) {
+      const p = users.find((u) => u.id === c.parentUserId);
+      if (p) {
+        p.parentChildrenIds = Array.from(new Set([...(p.parentChildrenIds ?? []), c.id]));
+      }
+    }
+    const settings = loadEngineSettings();
+    if (settings.autoAssignGames) {
+      c.assignments = this.matchGamesForChild(c);
+    } else if (c.assessmentStatus === "pending") {
       c.assignments = [{ gameId: "g1", source: "engine", reason: "assessment pending · screen on first session", assignedAt: iso(0), active: true }];
-    } else if (c.targets.length) {
-      const g = GAMES.find((x) => x.status === "active");
-      if (g) c.assignments = [{ gameId: g.id, source: "engine", reason: `target matched · auto-assigned`, assignedAt: iso(0), active: true }];
     }
     activity.unshift({ id: `a${activity.length + 1}`, type: "child_registered", text: `New child ${c.name} onboarded`, timestamp: iso(0) });
     return c;
   },
+
+  /** Auto-assign active games whose capabilities cover child targets (or Jungle for pending). */
+  matchGamesForChild(c: Child): Child["assignments"] {
+    const active = GAMES.filter((g) => g.status === "active");
+    if (!c.targets.length) {
+      return [{ gameId: "g1", source: "engine", reason: "assessment pending · screen on first session", assignedAt: iso(0), active: true }];
+    }
+    const matched = active.filter((g) =>
+      c.targets.some((t) =>
+        // Prefer games that support therapy types when targets exist
+        g.capabilities.exerciseTypes.some((et) =>
+          ["isolation", "word_hunt", "picture_naming", "word_repetition"].includes(et),
+        ),
+      ),
+    );
+    const pool = matched.length ? matched : active.slice(0, 1);
+    return pool.map((g, i) => ({
+      gameId: g.id,
+      source: "engine" as const,
+      reason: `auto-assign · target match #${i + 1}${loadEngineSettings().adaptiveEngine ? " · adaptive on" : ""}`,
+      assignedAt: iso(0),
+      active: true,
+    }));
+  },
+
+  updateChildLinks(childId: string, patch: { parentUserId?: string; therapistUserId?: string; name?: string; age?: number; gender?: string }): Child {
+    const c = this.getChild(childId)!;
+    if (patch.name !== undefined) c.name = patch.name;
+    if (patch.age !== undefined) c.age = patch.age;
+    if (patch.gender !== undefined) c.gender = patch.gender;
+    if (patch.parentUserId !== undefined) c.parentUserId = patch.parentUserId || undefined;
+    if (patch.therapistUserId !== undefined) c.therapistUserId = patch.therapistUserId || undefined;
+    return c;
+  },
+
   setAssessmentDiagnosed(childId: string, phonemes: string[]): Child {
     const c = this.getChild(childId)!;
     c.assessmentStatus = "diagnosed";
     c.targets = phonemes.map((p) => ({ phoneme: p, source: "diagnosed" }));
-    const g = GAMES.find((x) => x.status === "active");
-    if (g && !c.assignments.some((a) => a.gameId === g.id)) {
-      c.assignments.push({ gameId: g.id, source: "engine", reason: `diagnosed targets matched`, assignedAt: iso(0), active: true });
+    const settings = loadEngineSettings();
+    if (settings.autoAssignGames) {
+      const next = this.matchGamesForChild(c);
+      next.forEach((a) => {
+        if (!c.assignments.some((x) => x.gameId === a.gameId)) c.assignments.push(a);
+      });
+    } else {
+      const g = GAMES.find((x) => x.status === "active");
+      if (g && !c.assignments.some((a) => a.gameId === g.id)) {
+        c.assignments.push({ gameId: g.id, source: "engine", reason: `diagnosed targets matched`, assignedAt: iso(0), active: true });
+      }
     }
+    invalidateAnalytics(childId);
+    activity.unshift({ id: `a${activity.length + 1}`, type: "diagnostic", text: `${c.name} diagnosed · ${phonemes.join(", ")}`, timestamp: iso(0) });
     return c;
   },
   assignGame(childId: string, gameId: string, source: AssignmentSource, reason?: string): Child {
@@ -400,8 +734,19 @@ export const mockEngine = {
   },
   regenerateAssignment(childId: string): Child {
     const c = this.getChild(childId)!;
-    const active = GAMES.filter((g) => g.status === "active");
-    c.assignments = active.map((g, i) => ({ gameId: g.id, source: "engine", reason: `regenerated · target-matched #${i + 1}`, assignedAt: iso(0), active: true }));
+    const settings = loadEngineSettings();
+    if (settings.autoAssignGames) {
+      c.assignments = this.matchGamesForChild(c);
+    } else {
+      const active = GAMES.filter((g) => g.status === "active");
+      c.assignments = active.map((g, i) => ({
+        gameId: g.id,
+        source: "engine" as const,
+        reason: `manual regenerate #${i + 1}`,
+        assignedAt: iso(0),
+        active: true,
+      }));
+    }
     return c;
   },
 
@@ -485,8 +830,10 @@ export const mockEngine = {
   },
 
   getAnalytics(childId: string): ChildAnalytics {
-    if (!attemptsCache.has(childId)) attemptsCache.set(childId, buildAnalytics(childId));
-    return attemptsCache.get(childId)!;
+    // Rebuild each read so skin localStorage pushes appear without stale cache.
+    const next = buildAnalytics(childId);
+    analyticsCache.set(childId, next);
+    return next;
   },
 
   getUserName(id?: string): string {

@@ -3,8 +3,11 @@
 import { use, useState } from "react";
 import Link from "next/link";
 import { ArrowLeft, Plus, Pencil, Trash2, Check, X, Save } from "lucide-react";
+import Breadcrumbs from "@/components/breadcrumbs";
 import { mockEngine } from "@/services/mockEngine";
 import { Button, Card, Input, PageHeader } from "@/components/ui";
+import { getAuth } from "@/lib/auth";
+import { can } from "@/lib/permissions";
 import type { Exercise, ExerciseType } from "@/types/engine";
 
 const TYPE_LABEL: Record<string, string> = {
@@ -24,6 +27,7 @@ const POSITIONS = ["initial", "medial", "final"] as const;
 
 export default function LevelDetailPage({ params }: { params: Promise<{ id: string; levelId: string }> }) {
   const { id, levelId } = use(params);
+  const session = getAuth();
   const game = mockEngine.getGame(id);
   const level = mockEngine.getLevel(levelId);
   const [exercises, setExercises] = useState<Exercise[]>(() => (level ? mockEngine.getLevelExercises(levelId) : []));
@@ -31,6 +35,17 @@ export default function LevelDetailPage({ params }: { params: Promise<{ id: stri
   const [draft, setDraft] = useState<Partial<Exercise>>({});
   const [showAdd, setShowAdd] = useState(false);
   const [addForm, setAddForm] = useState({ word: "", targetPhoneme: "/r/", type: "word_repetition" as ExerciseType, position: "initial" as Exercise["position"], difficulty: 0.5 });
+
+  if (!can(session?.role, "content.write")) {
+    return (
+      <div className="py-20 text-center">
+        <p className="text-slate-400">Word editing requires Therapist or Admin.</p>
+        <Button variant="ghost" href={`/games/${id}`} className="mt-4">
+          <ArrowLeft size={16} /> Back to game
+        </Button>
+      </div>
+    );
+  }
 
   if (!game || !level) {
     return (
@@ -80,6 +95,13 @@ export default function LevelDetailPage({ params }: { params: Promise<{ id: stri
 
   return (
     <div>
+      <Breadcrumbs
+        items={[
+          { label: "Games", href: "/games" },
+          { label: game.name, href: `/games/${game.id}` },
+          { label: level.title },
+        ]}
+      />
       <Button variant="ghost" href={`/games/${game.id}`}><ArrowLeft size={16} /> {game.name}</Button>
       <PageHeader
         title={`Level ${level.index} · Words & Exercises`}

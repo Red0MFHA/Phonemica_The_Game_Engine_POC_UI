@@ -32,7 +32,8 @@ export default function ExercisesPage() {
 
   return (
     <div>
-      <PageHeader title="Exercise Library" subtitle="Engine-generated exercises across registered games." />
+      <PageHeader title="Exercise Library" subtitle="Engine-generated exercises across registered games. Seeded demo pool." />
+      <p className="mb-4 text-xs text-slate-400">Parents cannot open this page. Therapists may review the pool; Admin owns registration.</p>
 
       <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center">
         <div className="relative max-w-xs flex-1">
